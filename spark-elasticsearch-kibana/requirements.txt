@@ -1,0 +1,19 @@
+# Requirements for Spark-Elasticsearch-Kibana Integration
+
+# Core Spark & PySpark
+pyspark>=3.4.0
+
+# Elasticsearch
+elasticsearch>=8.11.0
+elasticsearch-dsl>=8.11.0
+
+# Data processing
+pandas>=1.5.0
+numpy>=1.24.0
+
+# Utilities
+python-dotenv>=1.0.0
+
+# Note: Elasticsearch-Spark connector cần được tải riêng
+# Download từ: https://repo1.maven.org/maven2/org/elasticsearch/elasticsearch-spark-30_2.12/8.11.0/
+# Hoặc sử dụng: spark.jars.packages trong SparkSession config
