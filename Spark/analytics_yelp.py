@@ -24,25 +24,7 @@ class YelpAnalytics:
     """Core analytics functions optimized for big data"""
     
     @staticmethod
-    def top_selling_products_recent(review_df, business_df, days=90, top_n=10):
-        """
-        1. Top sản phẩm (doanh nghiệp) bán chạy nhất trong khoảng thời gian gần
-        
-        Optimizations:
-        - Salting to handle data skew
-        - Two-stage aggregation
-        - Broadcast join for business info
-        - Early filtering and limiting
-        
-        Args:
-            review_df: DataFrame chứa dữ liệu review (đã preprocess dates)
-            business_df: DataFrame chứa dữ liệu business
-            days: số ngày gần đây cần phân tích
-            top_n: số lượng top sản phẩm
-        
-        Returns:
-            DataFrame với top sản phẩm bán chạy nhất
-        """
+    def top_selling_products_recent(review_df, business_df, days, top_n):
         print(f"\n{'='*60}")
         print(f"Analysis 1: Top {top_n} Selling Products (Last {days} days)")
         print(f"{'='*60}")
@@ -51,52 +33,37 @@ class YelpAnalytics:
         # Add salt to handle skew
         review_with_salt = review_df.withColumn("salt", (rand() * 10).cast("int"))
         
-        # Filter by date range
-        cutoff_date = to_date(lit('2022-01-19') , 'yyyy-MM-dd') - lit(90)
-        review_with_salt = review_with_salt.withColumn('date' , to_date(col('date') , 'yyyy-MM-dd HH:mm:ss'))
+        # # Filter by date range
+        cutoff_date = date_sub(to_timestamp(lit("2022-01-19 00:00:00"), "yyyy-MM-dd HH:mm:ss"), days)
+        review_with_salt = review_with_salt.withColumn('date' , to_timestamp(col('date') , 'yyyy-MM-dd HH:mm:ss'))
         recent_reviews = review_with_salt.filter(col("date") >= cutoff_date)
         
         # Stage 1: Salted aggregation
-        salted_agg = recent_reviews.groupBy("business_id", "salt").agg(
+        salted_agg = recent_reviews.groupBy("business_id", "salt" , 'review_ts').agg(
             count("review_id").alias("partial_count"),
             sum("stars").alias("partial_sum_stars"),
             count("stars").alias("partial_count_stars")
         )
         
         # Stage 2: Final aggregation
-        business_stats = salted_agg.groupBy("business_id").agg(
+        business_stats = salted_agg.groupBy("business_id" , 'review_ts').agg(
             sum("partial_count").alias("recent_review_count"),
             (sum("partial_sum_stars") / sum("partial_count_stars")).alias("avg_rating")
         )
         
         # Get top candidates before join
         top_candidates = business_stats \
-            .orderBy(desc("recent_review_count")) \
-            .limit(top_n * 10)
-        
+                        .limit(top_n * 10)  
+        #.orderBy(desc("recent_review_count")) \
+            
+        business_df = business_df.select("business_id", "name", "city", "state", "categories" , 'business_ts') 
         # Broadcast join with business info
-        result = top_candidates.join(
-            broadcast(business_df.select(
-                "business_id", "name", "city", "state", "categories"
-            )),
-            "business_id"
-        ).select(
-            "business_id",
-            "name",
-            "city",
-            "state",
-            "categories",
-            "recent_review_count",
-            "avg_rating"
-        ).orderBy(desc("recent_review_count")).limit(top_n)
+        result = top_candidates.join(business_df , "business_id" , 'inner')
         
-        # Materialize result
-        result_count = result.count()
-        
-        elapsed = time.time() - start_time
-        print(f"✓ Completed in {elapsed:.2f}s - Found {result_count} results")
+
         
         return result
+    
     
     @staticmethod
     def top_stores_by_product_count(business_df, top_n=10):
@@ -126,7 +93,7 @@ class YelpAnalytics:
             .filter(length(col("categories")) > 0) \
             .select(
                 "business_id", "name", "city", "state", 
-                "categories", "review_count", "stars"
+                "categories", "review_count", "stars" , 'business_ts'
             )
         
         # Count categories
@@ -141,16 +108,11 @@ class YelpAnalytics:
             "categories",
             "category_count",
             "review_count",
-            "stars"
-        ).orderBy(
-            desc("category_count"), 
-            desc("review_count")
-        ).limit(top_n)
+            "stars",
+            'business_ts'
+        )
         
-        result_count = result.count()
-        
-        elapsed = time.time() - start_time
-        print(f"✓ Completed in {elapsed:.2f}s - Found {result_count} results")
+      
         
         return result
     
@@ -181,14 +143,13 @@ class YelpAnalytics:
         
         # Repartition and cache
         review_partitioned = review_df \
-            .select("business_id", "review_id", "stars", "useful") \
-            .repartition(200, "business_id") \
-            .cache()
+            .select("business_id", "review_id", "stars", "useful" , 'review_ts') 
+           
         
         # Aggregate review stats
         business_stats = review_partitioned \
             .filter(col("stars").isNotNull()) \
-            .groupBy("business_id") \
+            .groupBy("business_id" , 'review_ts') \
             .agg(
                 count("review_id").alias("total_reviews"),
                 avg("stars").alias("avg_review_stars"),
@@ -200,15 +161,14 @@ class YelpAnalytics:
         
         # Get top candidates
         top_candidates = qualified \
-            .orderBy(desc("avg_review_stars"), desc("total_reviews")) \
             .limit(top_n * 5)
         
         # Broadcast join
         result = top_candidates.join(
-            broadcast(business_df.select(
-                "business_id", "name", "city", "state", "categories", "stars"
-            )),
-            "business_id"
+            business_df.select(
+                "business_id", "name", "city", "state", "categories", "stars" , 'business_ts'
+            ),
+            "business_id" , 'inner'
         ).select(
             "business_id",
             "name",
@@ -218,20 +178,17 @@ class YelpAnalytics:
             "total_reviews",
             "avg_review_stars",
             "total_useful",
-            col("stars").alias("business_avg_stars")
-        ).orderBy(
-            desc("avg_review_stars"), 
-            desc("total_reviews")
-        ).limit(top_n)
+            col("stars").alias("business_avg_stars") ,
+            # 'business_ts' ,
+            'review_ts'
+        )
         
-        result_count = result.count()
+      
         
         # Cleanup
         review_partitioned.unpersist()
         
-        elapsed = time.time() - start_time
-        print(f"✓ Completed in {elapsed:.2f}s - Found {result_count} results")
-        
+       
         return result
     
     @staticmethod
@@ -262,12 +219,12 @@ class YelpAnalytics:
         
         # Repartition and cache
         review_partitioned = review_df \
-            .select("business_id", "review_id", "stars", "useful") \
-            .repartition(200, "business_id") \
-            .cache()
+            .select("business_id", "review_id", "stars", "useful" , 'review_ts') 
+            
+
         
         # Single-pass aggregation with conditional logic
-        review_stats = review_partitioned.groupBy("business_id").agg(
+        review_stats = review_partitioned.groupBy("business_id" , 'review_ts').agg(
             # Count positive reviews
             sum(when(col("stars") >= positive_threshold, 1).otherwise(0))
                 .alias("positive_review_count"),
@@ -294,15 +251,14 @@ class YelpAnalytics:
         
         # Get top candidates
         top_candidates = review_stats_filtered \
-            .orderBy(desc("positive_review_count"), desc("positive_ratio")) \
             .limit(top_n * 3)
         
         # Broadcast join
         result = top_candidates.join(
-            broadcast(business_df.select(
-                "business_id", "name", "city", "state", "categories"
-            )),
-            "business_id"
+            business_df.select(
+                "business_id", "name", "city", "state", "categories" , 'business_ts'
+            ),
+            "business_id" , 'inner'
         ).select(
             "business_id",
             "name",
@@ -313,20 +269,17 @@ class YelpAnalytics:
             "total_review_count",
             "positive_ratio",
             "avg_positive_rating",
-            "total_useful_votes"
-        ).orderBy(
-            desc("positive_review_count"), 
-            desc("positive_ratio")
-        ).limit(top_n)
+            "total_useful_votes" ,
+            # 'business_ts' , 
+            'review_ts'
+        )
         
-        result_count = result.count()
+
         
         # Cleanup
         review_partitioned.unpersist()
         
-        elapsed = time.time() - start_time
-        print(f"✓ Completed in {elapsed:.2f}s - Found {result_count} results")
-        
+    
         return result
     
 
@@ -344,20 +297,18 @@ class YelpAnalytics:
         start_time = time.time()
 
         # Cột date có dạng "yyyy-MM-dd HH:mm:ss"
-        df = review_df.withColumn("date_parsed", to_date(col("date"), "yyyy-MM-dd HH:mm:ss"))
+        df = review_df.withColumn("date_parsed", to_timestamp(col("date"), "yyyy-MM-dd HH:mm:ss"))
 
         result = (
             df.groupBy(
                 year("date_parsed").alias("year"),
-                month("date_parsed").alias("month")
+                month("date_parsed").alias("month") ,
+                'review_ts'
             )
             .agg(count("review_id").alias("review_count"))
-            .orderBy(desc("review_count"))
         )
 
-        result_count = result.count()
-        elapsed = time.time() - start_time
-        print(f"✓ Completed in {elapsed:.2f}s - Found {result_count} time groups")
+      
         return result
 
     # ================================================================
@@ -377,19 +328,15 @@ class YelpAnalytics:
         df_business = business_df.withColumn("category", explode(split(col("categories"), ",\\s*")))
 
         # Join review với business
-        joined = review_df.join(broadcast(df_business.select("business_id", "category")), "business_id")
+        joined = review_df.join(df_business.select("business_id", "category" , 'business_ts'), "business_id" , 'inner')
 
         # Đếm số lượng review cho từng category
         result = (
-            joined.groupBy("category")
+            joined.groupBy("category" , 'review_ts' )
             .agg(count("review_id").alias("total_reviews"))
-            .orderBy(desc("total_reviews"))
-            .limit(top_n)
         )
 
-        result_count = result.count()
-        elapsed = time.time() - start_time
-        print(f"✓ Completed in {elapsed:.2f}s - Found {result_count} categories")
+        
         return result
 
     # ================================================================
@@ -408,7 +355,7 @@ class YelpAnalytics:
 
         # Tính toán lại số lượng review và sao trung bình thực tế
         review_stats = (
-            review_df.groupBy("business_id")
+            review_df.groupBy("business_id" , 'review_ts')
             .agg(
                 count("review_id").alias("actual_review_count"),
                 avg("stars").alias("actual_avg_stars")
@@ -417,7 +364,7 @@ class YelpAnalytics:
 
         # Gộp với thông tin cửa hàng
         result = (
-            business_df.join(broadcast(review_stats), "business_id", "left")
+            business_df.join(review_stats, "business_id", "inner")
             .select(
                 "business_id",
                 "name",
@@ -427,14 +374,13 @@ class YelpAnalytics:
                 "stars",
                 "review_count",
                 "actual_review_count",
-                "actual_avg_stars"
+                "actual_avg_stars" ,
+                # 'review_ts' ,
+                'business_ts'
             )
-            .orderBy("business_id")
         )
 
-        result_count = result.count()
-        elapsed = time.time() - start_time
-        print(f"✓ Completed in {elapsed:.2f}s - Found {result_count} businesses")
+
         return result
 
 

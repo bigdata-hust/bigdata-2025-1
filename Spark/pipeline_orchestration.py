@@ -20,7 +20,8 @@ from analytics_yelp import YelpAnalytics
 from load_data import DataLoader
 from configuration import SparkConfig , YelpSchemas
 
-
+import json
+import requests
 from configuration import SparkConfig
 class YelpAnalysisPipeline:
     """
@@ -46,12 +47,9 @@ class YelpAnalysisPipeline:
         self.review_df = self.data_loader.load_review_data()
         # self.user_df = self.data_loader.load_user_data()  # Load if needed
         
-        # Checkpoint business data (reused multiple times)
-        self.business_df.checkpoint()
-        
         print("\n✓ All data loaded successfully")
-    
-    def run_analysis_1(self, days=90, top_n=10):
+
+    def run_analysis_1(self, days=15, top_n=10):
         """Run Analysis 1: Top Selling Products"""
         try:
             result = self.analytics.top_selling_products_recent(
@@ -141,7 +139,7 @@ class YelpAnalysisPipeline:
         """
         if config is None:
             config = {
-                'analysis_1': {'days': 90, 'top_n': 10},
+                'analysis_1': {'days': 15, 'top_n': 10},
                 'analysis_2': {'top_n': 10},
                 'analysis_3': {'min_reviews': 10, 'top_n': 10},
                 'analysis_4': {'positive_threshold': 4, 'top_n': 10},
@@ -163,19 +161,14 @@ class YelpAnalysisPipeline:
         self.run_analysis_6(**config['analysis_6'])
         self.run_analysis_7()
 
-        print("=== BEFORE ANALYSIS 3 ===")
-        print("Business rows:", self.business_df.count())
-        print("Review rows:", self.review_df.count())
+        
 
         result3 = self.run_analysis_3(**config.get("analysis_3", {}))
-        print("Analysis 3 result rows:", result3.count())
-        result3.show(5, truncate=False)
-
+        
         total_elapsed = time.time() - total_start
         print("\n" + "="*60)
         print(f"ALL ANALYSES COMPLETED in {total_elapsed:.2f}s")
         print("="*60)
-
     
     def display_results(self):
         """Display all results"""
@@ -186,9 +179,13 @@ class YelpAnalysisPipeline:
         for name, df in self.results.items():
             print(f"\n{name.upper().replace('_', ' ')}:")
             print("-" * 60)
-            df.show(truncate=False)
+           
     
-    def save_results(self, format='parquet', coalesce=True):
+    from pyspark.sql.functions import current_timestamp
+
+    
+
+    def save_results(self):
         """
         Save results to disk
         
@@ -202,42 +199,149 @@ class YelpAnalysisPipeline:
         
         for name, df in self.results.items():
             output_path = f"{self.output_path}{name}"
-            
-            try:
-                writer = df.coalesce(1) if coalesce else df
-                
-                if format == 'parquet':
-                    writer.write \
-                        .mode("overwrite") \
-                        .option("compression", "snappy") \
-                        .parquet(output_path)
-                elif format == 'csv':
-                    writer.write \
-                        .mode("overwrite") \
-                        .option("header", "true") \
-                        .csv(output_path)
-                elif format == 'json':
-                    writer.write \
-                        .mode("overwrite") \
-                        .json(output_path)
-                
+            try :
+                df.writeStream.format('parquet') \
+                                .outputMode('append') \
+                                .option('checkpointLocation' , f'./check_output_dir/{name}' )
                 print(f"✓ Saved {name} to {output_path}")
             
             except Exception as e:
                 print(f"✗ Error saving {name}: {str(e)}")
+
+    def save_hdfs(self):
+        print('\n' + '='*60)
+        print('SAVING TO HDFS')
+        print('='*60)
+        queries = []
+        for name, df in self.results.items():
+            output = f'hdfs://localhost:9000/test_01/{name}'
+            try:
+                df_partitions = (df
+                    .withColumn('created_date', current_timestamp())
+                    .withColumn('updated_date', current_timestamp())
+                    .withColumn('year', year('created_date'))
+                    .withColumn('month', month('created_date'))
+                    .withColumn('day', dayofmonth('created_date'))
+                    .withColumn('hour', hour('created_date'))
+                )
+
+                query = (
+                df_partitions.writeStream
+                    .format('parquet')
+                    .outputMode('append')
+                    .partitionBy('year', 'month', 'day', 'hour')
+                    .option('path', output)
+                    .option('checkpointLocation', f"./check_point_dir/{name}/")
+                    .trigger(processingTime="5 seconds")
+                    .start()
+                )
+
+                queries.append(query)
+                print(f" Stream '{name}' started -> {output}")
+            except Exception as e:
+                print(f" Error saving {name} to HDFS: {e}")
+        return queries
+
+
+    def save_elasticsearch(self) :
+        print('\n' + '='*60)
+        print('SAVING TO ELASTICSEARCH')
+        print('='*60)
+        def save_es(df , batch_id , index)  :
+            print('\n' + '='*60)
+            print(f'=== Start save {index} to ElasticSearch===')
+            print('='*60)
+
+            print('=== batch id : ' , str(batch_id) , " ===")
+            
+            bulk = ""
+            rows = [r.asDict() for r in df.collect()]
+            for r in rows :
+                bulk += json.dumps({'index' : {}}) + '\n' 
+                bulk += json.dumps(r , default = lambda x : x.isoformat() if hasattr(x , 'isoformat') else x) + '\n'
+
+            res = requests.post(
+                f'http://localhost:9200/{index}/_bulk' ,
+                data = bulk ,
+                headers = {'Content-Type' : 'application/x-ndjson'}
+            )
+
+            if res.status_code >= 300 :
+                print(f'ES bulk {name} Error : ' , res.text) 
+            else :
+                print('ES bulk {name} Ok ')
+        queries = []
+        for name,df in self.results.items() :
+            try :
+                query = (
+                    df.writeStream.foreachBatch(lambda df , batch_id , index = name :
+                                                save_es(df , batch_id , index)) \
+                                    .outputMode('append') \
+                                    .start()
+                )
+                queries.append(query)
+                print(f" Stream '{name}' started -> Elasticsearch")
+            except Exception as e:
+                print(f" Error saving {name} to Elasticsearch: {e}")
+       
+        return queries
     
+    
+    def save_mongodb(self) :
+        print('\n' + '='*60)
+        print('SAVING TO MONGODB')
+        print('='*60)
+        def save_mg(df , batch_id , index) :
+            print('\n' + '='*60)
+            print(f'=== Start save {index} to MongoDB ===')
+            print('='*60)
+
+            print('=== batch id : ' , str(batch_id) , ' ===')
+            
+            df.write.format('mongodb') \
+                            .option('database' , 'yelp_sentiment') \
+                            .option('collection' , index) \
+                            .mode('append') \
+                            .save()
+        queries = []
+        for name,df in self.results.items() :
+            try :
+                query = (
+                    df.writeStream.foreachBatch(lambda df , batch_id , index = name :
+                                                save_mg(df , batch_id , index)) \
+                                    .outputMode('append') \
+                                    .start()
+                )
+                queries.append(query)
+                print(f" Stream '{name}' started -> MongoDB")
+            except Exception as e:
+                print(f" Error saving {name} to MongoDB: {e}")
+       
+        return queries
+    def save_all(self) :
+        print('=== Starting all streaming jobs ===')
+
+        queries = []
+        queries += self.save_hdfs()
+        #queries += self.save_elasticsearch()
+        queries += self.save_mongodb()
+
+        if queries:
+            print("\n=== Waiting for streaming queries to run ===")
+            self.spark.streams.awaitAnyTermination()
+        else:
+            print("\n No streaming queries started!")
+            
     def generate_summary_report(self):
         """Generate summary statistics"""
         print("\n" + "="*60)
         print("SUMMARY REPORT")
         print("="*60)
         
-        print(f"\nTotal Businesses: {self.business_df.count():,}")
-        print(f"Total Reviews: {self.review_df.count():,}")
-        
+      
         for name, df in self.results.items():
             print(f"\n{name.upper().replace('_', ' ')}:")
-            print(f"  Results: {df.count()}")
+         
     
     def cleanup(self):
         """Cleanup resources"""

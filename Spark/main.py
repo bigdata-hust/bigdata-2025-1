@@ -42,23 +42,26 @@ def main():
         
         # Step 2: Run all analyses (1–7)
         pipeline.run_all_analyses(config={
-            'analysis_1': {'days': 90, 'top_n': 10},
+            'analysis_1': {'days': 15, 'top_n': 10},
             'analysis_2': {'top_n': 10},
-            'analysis_3': {'min_reviews': 50, 'top_n': 10},
+            'analysis_3': {'min_reviews': 10, 'top_n': 10},
             'analysis_4': {'positive_threshold': 4, 'top_n': 10},
-            'analysis_6': {'top_n': 20}  # cho top category
+            'analysis_6': {'top_n': 20}
         })
         
         # Step 3: Display results
         pipeline.display_results()
         
         # Step 4: Save results
-        pipeline.save_results(format='parquet', coalesce=True)
-        
-        # Step 5: Generate summary
+        # Step 5 : Save HDFS
+        # Step 6 : Save ElasticSearch
+        # Step 7 : Save MongoDB
+        pipeline.save_all()
+
+        # Step 8: Generate summary
         pipeline.generate_summary_report()
         
-        # Step 6: Cleanup
+        # Step 9: Cleanup
         pipeline.cleanup()
         
         print("\n" + "="*80)
@@ -70,9 +73,7 @@ def main():
         import traceback
         traceback.print_exc()
     
-    finally:
-        # Always stop Spark
-        pipeline.stop()
+   
 
 
 # ============================================================================
@@ -118,8 +119,7 @@ def run_single_analysis(analysis_number, **kwargs):
         import traceback
         traceback.print_exc()
     
-    finally:
-        pipeline.stop()
+
 
 
 def run_custom_analysis(business_df, review_df, analysis_func, **kwargs):

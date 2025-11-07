@@ -3,7 +3,7 @@ import pyspark
 Yelp Big Data Analysis System
 Optimized PySpark Pipeline for Large-Scale Data Processing
 """
-
+import os
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import *
 from pyspark.sql.types import (
@@ -19,40 +19,56 @@ from datetime import datetime
 # ============================================================================
 # CONFIGURATION & INITIALIZATION
 # ============================================================================
-
 class SparkConfig:
-    """Spark configuration optimized for big data processing"""
-    
-    @staticmethod
     def create_spark_session():
         """
-        Initialize Spark Session with optimized configurations
+        Initialize Spark Session with optimized configurations for streaming
         """
-        spark = SparkSession.builder \
-            .appName("Yelp Big Data Analysis System") \
-            .config("spark.sql.adaptive.enabled", "true") \
-            .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
-            .config("spark.sql.adaptive.skewJoin.enabled", "true") \
-            .config("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128MB") \
-            .config("spark.sql.shuffle.partitions", "200") \
-            .config("spark.default.parallelism", "200") \
-            .config("spark.sql.autoBroadcastJoinThreshold", "10MB") \
-            .config("spark.memory.fraction", "0.8") \
-            .config("spark.memory.storageFraction", "0.3") \
-            .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
-            .config("spark.kryoserializer.buffer.max", "512m") \
-            .config("spark.sql.inMemoryColumnarStorage.compressed", "true") \
-            .config("spark.sql.inMemoryColumnarStorage.batchSize", "10000") \
-            .config("spark.sql.files.maxPartitionBytes", "134217728") \
-            .config("spark.sql.files.openCostInBytes", "4194304") \
-            .getOrCreate()
-        
+        # Đảm bảo thư mục checkpoints tồn tại
+        os.makedirs("checkpoints", exist_ok=True)
+
+        spark = (
+            SparkSession.builder
+            .appName("Yelp Big Data Analysis System")
+
+            # ---- MEMORY ----
+            .config("spark.driver.memory", "16g")      
+            .config("spark.executor.memory", "4g")
+            .config("spark.memory.fraction", "0.6")
+
+            # ---- STREAMING ----
+            .config("spark.sql.shuffle.partitions", "20")   
+            .config("spark.default.parallelism", "20")
+            .config("spark.streaming.stopGracefullyOnShutdown", "true")
+
+            # ---- SERIALIZER ----
+            .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+            .config("spark.kryoserializer.buffer.max", "512m")
+
+            # ---- OPTIONAL ----
+            .config("spark.sql.streaming.stateStore.providerClass", 
+                    "org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider")
+            .config('spark.streaming.stopGracefullyOnShutdown' , True)
+
+            # ---- KAFKA - MONGODB - ELASTICSEARCH ----
+            .config(
+                "spark.jars.packages",
+                "org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.1," 
+                'org.mongodb.spark:mongo-spark-connector_2.13:10.5.0,' 
+                'org.elasticsearch:elasticsearch-spark-30_2.13:8.14.3'
+            )
+            .config('spark.mongodb.write.connection.uri' , 'mongodb://192.168.1.4:27017')
+            
+            .getOrCreate()         
+        )
+
+        # ✅ Đặt checkpointDir an toàn (dưới spark context)
+        spark.sparkContext.setCheckpointDir(os.path.abspath("checkpoints"))
         spark.sparkContext.setLogLevel("WARN")
-        spark.sparkContext.setCheckpointDir("checkpoints/")
-        
+
+    
+  
         return spark
-
-
 # ============================================================================
 # DATA SCHEMAS
 # ============================================================================
