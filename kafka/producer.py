@@ -2,10 +2,12 @@ from kafka import KafkaProducer
 import time
 import json
 import threading
+import os
 
+KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:9092")
 # Cấu hình Kafka 
 producer = KafkaProducer(
-    bootstrap_servers = ["kafka:9092"]
+    bootstrap_servers = [KAFKA_BROKER]
 )
 
 # === Callback khi gửi thành công ===

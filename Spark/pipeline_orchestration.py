@@ -329,7 +329,7 @@ class YelpAnalysisPipeline:
         queries = []
         queries += self.save_hdfs()
         queries += self.save_elasticsearch()
-        queries += self.save_mongodb()
+        # queries += self.save_mongodb()
 
         if queries:
             print("\n=== Waiting for streaming queries to run ===")

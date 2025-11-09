@@ -44,11 +44,6 @@ services:
     ports:
       - "9200:9200"
 
-  mongo:
-    image: mongo:6.0
-    ports:
-      - "27017:27017"
-
   kafka-producer:
     image: minhhaitknavn/yelp-kafka-producer:2.0.0
     environment:
@@ -61,12 +56,10 @@ services:
     image: minhhaitknavn/yelp-sentiment:2.0.0
     environment:
       - HDFS_URL=hdfs://hdfs-namenode:9000
-      - MONGO_URL=mongodb://mongo:27017
       - ELASTIC_URL=http://elasticsearch:9200
       - KAFKA_BROKER=kafka:9092
     depends_on:
       - kafka
       - hdfs-namenode
-      - mongo
       - elasticsearch
     command: ["python", "Spark/main.py"]
