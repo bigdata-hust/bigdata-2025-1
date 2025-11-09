@@ -38,9 +38,9 @@ def stream_file_to_topic(path , topic) :
             print(f"Sent {len(batch)} records to topic {topic}")
 
 threads = [
-    threading.Thread(target = stream_file_to_topic , args = ("./data/business.json" , "business")) ,
-    threading.Thread(target = stream_file_to_topic , args = ("./data/review.json" , "review")) ,
-    threading.Thread(target = stream_file_to_topic , args = ("./data/user.json" , "user"))
+    threading.Thread(target = stream_file_to_topic , args = ("../data/business.json" , "business")) ,
+    threading.Thread(target = stream_file_to_topic , args = ("../data/review.json" , "review")) ,
+    threading.Thread(target = stream_file_to_topic , args = ("../data/user.json" , "user"))
 ]
 
 for t in threads :

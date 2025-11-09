@@ -21,6 +21,7 @@ from load_data import DataLoader
 from configuration import SparkConfig , YelpSchemas
 
 import json
+import traceback
 import requests
 from configuration import SparkConfig
 class YelpAnalysisPipeline:
@@ -202,7 +203,7 @@ class YelpAnalysisPipeline:
             try :
                 df.writeStream.format('parquet') \
                                 .outputMode('append') \
-                                .option('checkpointLocation' , f'./check_output_dir/{name}' )
+                                .option('checkpointLocation' , f'/home/mhai/Project DE/bigdata-2025-1/check_output_dir/{name}' )
                 print(f"✓ Saved {name} to {output_path}")
             
             except Exception as e:
@@ -231,7 +232,7 @@ class YelpAnalysisPipeline:
                     .outputMode('append')
                     .partitionBy('year', 'month', 'day', 'hour')
                     .option('path', output)
-                    .option('checkpointLocation', f"./check_point_dir/{name}/")
+                    .option('checkpointLocation', f"/home/mhai/Project DE/bigdata-2025-1/check_point_dir/{name}/")
                     .trigger(processingTime="5 seconds")
                     .start()
                 )
@@ -292,17 +293,21 @@ class YelpAnalysisPipeline:
         print('SAVING TO MONGODB')
         print('='*60)
         def save_mg(df , batch_id , index) :
-            print('\n' + '='*60)
-            print(f'=== Start save {index} to MongoDB ===')
-            print('='*60)
+            try :
+                print('\n' + '='*60)
+                print(f'=== Start save {index} to MongoDB ===')
+                print('='*60)
 
-            print('=== batch id : ' , str(batch_id) , ' ===')
-            
-            df.write.format('mongodb') \
-                            .option('database' , 'yelp_sentiment') \
-                            .option('collection' , index) \
-                            .mode('append') \
-                            .save()
+                print('=== batch id : ' , str(batch_id) , ' ===')
+                
+                df.write.format('mongodb') \
+                                .option('database' , 'yelp_sentiment') \
+                                .option('collection' , index) \
+                                .mode('append') \
+                                .save()
+            except Exception as e:
+                print("🔥 Exception inside save_es():", str(e))
+                traceback.print_exc()
         queries = []
         for name,df in self.results.items() :
             try :
@@ -323,7 +328,7 @@ class YelpAnalysisPipeline:
 
         queries = []
         queries += self.save_hdfs()
-        #queries += self.save_elasticsearch()
+        queries += self.save_elasticsearch()
         queries += self.save_mongodb()
 
         if queries:

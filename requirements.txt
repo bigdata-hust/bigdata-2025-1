@@ -1,0 +1,17 @@
+ # --- Data Processing & Analysis ---
+pandas
+numpy
+missingno
+# --- Data Visualization ---
+matplotlib
+seaborn
+# --- Machine Learning & NLP ---
+scikit-learn
+nltk
+spacy
+# --- Big Data & Distributed Computing ---
+pyspark==4.0.1
+# --- Streaming & Messaging ---
+kafka-python
+# --- API & Networking ---
+requests
