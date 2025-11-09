@@ -1,27 +1,33 @@
 from confluent_kafka import Producer
 import time
+import os
 
-# Cấu hình Kafka broker
-conf = {'bootstrap.servers': "localhost:9092"}
+# Lấy địa chỉ Kafka từ biến môi trường (dễ cấu hình khi deploy)
+bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+topic = os.getenv("KAFKA_TOPIC", "test")
+
+conf = {'bootstrap.servers': bootstrap_servers}
 producer = Producer(conf)
 
-topic = "test"
-
-# Hàm callback khi gửi xong
 def delivery_report(err, msg):
     if err is not None:
-        print(f"❌ Message delivery failed: {err}")
+        print(f"Delivery failed: {err}")
     else:
-        print(f"✅ Delivered to {msg.topic()} [{msg.partition()}] at offset {msg.offset()}")
+        print(f"Delivered to {msg.topic()} [{msg.partition()}] offset {msg.offset()}")
 
-# Đọc file JSON và gửi từng dòng
-with open(r"D:\HUAN\PROJECT\Big data\data\unlabeled\merged_data.json", "r", encoding="utf-8") as f:
+file_path = os.getenv("DATA_PATH", "merged_data.json")
+
+with open(file_path, "r", encoding="utf-8") as f:
     for line in f:
         line = line.strip()
         if not line:
             continue
-        producer.produce(topic, key=None, value=line, callback=delivery_report)
-        producer.poll(0)  # Xử lý event callback
-        time.sleep(1)     # delay 1 giây (mô phỏng streaming)
+        try:
+            producer.produce(topic, value=line, callback=delivery_report)
+        except BufferError:
+            producer.poll(1)
+            continue
+        producer.poll(0)
+        time.sleep(1)
 
 producer.flush()
