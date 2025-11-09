@@ -215,7 +215,7 @@ class YelpAnalysisPipeline:
         print('='*60)
         queries = []
         for name, df in self.results.items():
-            output = f'hdfs://localhost:9000/test_01/{name}'
+            output = f'hdfs://hdfs-namenode:9000/test_01/{name}'
             try:
                 df_partitions = (df
                     .withColumn('created_date', current_timestamp())
@@ -262,7 +262,7 @@ class YelpAnalysisPipeline:
                 bulk += json.dumps(r , default = lambda x : x.isoformat() if hasattr(x , 'isoformat') else x) + '\n'
 
             res = requests.post(
-                f'http://localhost:9200/{index}/_bulk' ,
+                f'http://elasticsearch:9200/{index}/_bulk' ,
                 data = bulk ,
                 headers = {'Content-Type' : 'application/x-ndjson'}
             )

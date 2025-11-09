@@ -9,7 +9,7 @@ ENV PATH=$JAVA_HOME/bin:$PATH
 ENV PYSPARK_PYTHON=python3
 ENV PYSPARK_DRIVER_PYTHON=python3
 
-WORKDIR /yelp-sentiment
+WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -17,6 +17,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 4040 8080 7077 9092
+EXPOSE 4040 8080 7077 
 
 CMD ["python", "Spark/main.py"]

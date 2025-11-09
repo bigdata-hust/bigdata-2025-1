@@ -19,7 +19,7 @@ class DataLoader:
         business_df = (
             self.spark.readStream
                 .format("kafka")
-                .option("kafka.bootstrap.servers", "172.23.152.231:9092")
+                .option("kafka.bootstrap.servers", "kafka:9092")
                 .option("subscribe", "business")
                 .option("startingOffsets", "earliest")
                 .load()
@@ -44,7 +44,7 @@ class DataLoader:
         review_df = (
             self.spark.readStream
                 .format("kafka")
-                .option("kafka.bootstrap.servers", "172.23.152.231:9092")
+                .option("kafka.bootstrap.servers", "kafka:9092")
                 .option("subscribe", "review")
                 .option("startingOffsets", "earliest")
                 .load()
@@ -67,7 +67,7 @@ class DataLoader:
         user_df = (
             self.spark.readStream
                 .format("kafka")
-                .option("kafka.bootstrap.servers", "172.23.152.231:9092")
+                .option("kafka.bootstrap.servers", "kafka:9092")
                 .option("subscribe", "user")
                 .option("startingOffsets", "earliest")
                 .load()

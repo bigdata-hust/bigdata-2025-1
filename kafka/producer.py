@@ -5,7 +5,7 @@ import threading
 
 # Cấu hình Kafka 
 producer = KafkaProducer(
-    bootstrap_servers = ["172.23.152.231:9092"]
+    bootstrap_servers = ["kafka:9092"]
 )
 
 # === Callback khi gửi thành công ===

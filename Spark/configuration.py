@@ -57,7 +57,7 @@ class SparkConfig:
                 'org.mongodb.spark:mongo-spark-connector_2.13:10.5.0,' 
                 'org.elasticsearch:elasticsearch-spark-30_2.13:8.14.3'
             )
-            .config('spark.mongodb.write.connection.uri' , 'mongodb://192.168.1.5:27017')
+            .config('spark.mongodb.write.connection.uri' , 'mongodb://mongodb:27017')
             
             .getOrCreate()         
         )
