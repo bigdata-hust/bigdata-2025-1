@@ -19,4 +19,4 @@ COPY . .
 
 EXPOSE 4040 8080 7077 
 
-CMD ["python", "Spark/main.py"]
+CMD ["python", "main.py"]
