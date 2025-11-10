@@ -1,4 +1,4 @@
-FROM python:3.12.12-slim-bookworm 
+FROM python:3.12-slim-bookworm
 
 WORKDIR /app
 
@@ -7,4 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["python" , "producer.py"]
+CMD ["python", "producer.py"]
