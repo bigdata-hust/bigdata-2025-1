@@ -1,10 +1,14 @@
-FROM python:3.12-slim-bookworm
+FROM python:3.10-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY kafka/producer.py .
+COPY kafka/requirements.txt .
+COPY data ./data
+
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+ENV KAFKA_BROKER=kafka:9092
+ENV DATA_DIR=/app/data
 
 CMD ["python", "producer.py"]
