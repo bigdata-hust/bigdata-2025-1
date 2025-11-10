@@ -22,6 +22,11 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
+  kafka-reader:
+    image: your_kafka_reader:latest
+    volumes:
+      - /path/to/data:/app/data
+
   hdfs-namenode:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.1.3-java8
     environment:
@@ -63,9 +68,14 @@ services:
     image: minhhaitknavn/yelp-kafka-producer:2.0.0
     environment:
       - KAFKA_BROKER=kafka:9092
+      - DATA_DIR=/app/data
+      - BATCH_SIZE=1000
+      - DELAY=0
     depends_on:
       - kafka
     command: ["python", "producer.py"]
+    volumes:
+    - ./data:/app/data    
     restart: always
 
   spark:
