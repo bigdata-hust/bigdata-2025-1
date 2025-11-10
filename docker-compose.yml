@@ -64,8 +64,8 @@ services:
     environment:
       - KAFKA_BROKER=kafka:9092
       - DATA_DIR=/app/data
-      - BATCH_SIZE=1000
-      - DELAY=0
+      - BATCH_SIZE=100
+      - DELAY=1
     depends_on:
       - kafka
     volumes:
