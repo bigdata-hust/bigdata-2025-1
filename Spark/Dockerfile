@@ -1,4 +1,4 @@
-FROM python:3.12.12-slim-bookworm
+FROM python:3.12.12-slim-bookworm 
 
 RUN apt-get update && \
     apt-get install -y openjdk-17-jdk && \
@@ -12,11 +12,10 @@ ENV PYSPARK_DRIVER_PYTHON=python3
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 4040 8080 7077 
+EXPOSE 4040 8080 7077
 
-CMD ["python", "main.py"]
+CMD ["python3", "main.py"]

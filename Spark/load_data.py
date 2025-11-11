@@ -3,13 +3,15 @@ from pyspark.sql.functions import *
 from pyspark.sql.types import *
 
 from configuration import SparkConfig, YelpSchemas
+import os
 
 class DataLoader:
     """Handles data loading and preprocessing"""
 
-    def __init__(self, spark, data_path="../bigdata-2025-1/data/"):
+    def __init__(self, spark, data_path=None):
         self.spark = spark
-        self.data_path = data_path
+        self.data_path = data_path or os.getenv("DATA_PATH", "../bigdata-2025-1/data/")
+        self.kafka_broker = os.getenv("KAFKA_BROKER", "kafka:9092")
         self.schemas = YelpSchemas()
 
     def load_business_data(self):
@@ -19,7 +21,7 @@ class DataLoader:
         business_df = (
             self.spark.readStream
                 .format("kafka")
-                .option("kafka.bootstrap.servers", "kafka:9092")
+                .option("kafka.bootstrap.servers", self.kafka_broker)
                 .option("subscribe", "business")
                 .option("startingOffsets", "earliest")
                 .load()
@@ -44,7 +46,7 @@ class DataLoader:
         review_df = (
             self.spark.readStream
                 .format("kafka")
-                .option("kafka.bootstrap.servers", "kafka:9092")
+                .option("kafka.bootstrap.servers", self.kafka_broker)
                 .option("subscribe", "review")
                 .option("startingOffsets", "earliest")
                 .load()
@@ -67,7 +69,7 @@ class DataLoader:
         user_df = (
             self.spark.readStream
                 .format("kafka")
-                .option("kafka.bootstrap.servers", "kafka:9092")
+                .option("kafka.bootstrap.servers", self.kafka_broker)
                 .option("subscribe", "user")
                 .option("startingOffsets", "earliest")
                 .load()

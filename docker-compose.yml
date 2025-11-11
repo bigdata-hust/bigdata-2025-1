@@ -1,10 +1,10 @@
-version: "3.9"
-
 services:
   zookeeper:
     image: wurstmeister/zookeeper
     ports:
       - "2181:2181"
+    networks:
+      - yelp-network
 
   kafka:
     image: wurstmeister/kafka
@@ -15,31 +15,44 @@ services:
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_BROKER_ID: 1
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     depends_on:
       - zookeeper
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - yelp-network
 
+  
   hdfs-namenode:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.1.3-java8
+    container_name: hdfs-namenode
     environment:
       - CLUSTER_NAME=hadoop
+      - CORE_CONF_fs_defaultFS=hdfs://hdfs-namenode:9000
     volumes:
       - ./hdfs/namenode:/hadoop/dfs/name
     ports:
       - "9870:9870"
       - "9000:9000"
+    networks:
+      - yelp-network
 
   hdfs-datanode:
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.1.3-java8
+    container_name: hdfs-datanode
     environment:
+      - SERVICE_PRECONDITION=hdfs-namenode:9870
       - CORE_CONF_fs_defaultFS=hdfs://hdfs-namenode:9000
     volumes:
       - ./hdfs/datanode:/hadoop/dfs/data
     depends_on:
       - hdfs-namenode
+    networks:
+      - yelp-network
+
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.3
@@ -48,6 +61,8 @@ services:
       - xpack.security.enabled=false
     ports:
       - "9200:9200"
+    networks:
+      - yelp-network
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.11.3
@@ -57,7 +72,8 @@ services:
       - "5601:5601"
     depends_on:
       - elasticsearch
-
+    networks:
+      - yelp-network
 
   kafka-producer:
     image: minhhaitknavn/yelp-kafka-producer:2.0.0
@@ -69,8 +85,10 @@ services:
     depends_on:
       - kafka
     volumes:
-    - ./data:/app/data    
+      - ./data:/app/data
     restart: always
+    networks:
+      - yelp-network
 
   spark:
     image: minhhaitknavn/yelp-sentiment:2.0.0
@@ -82,7 +100,13 @@ services:
       - kafka
       - hdfs-namenode
       - elasticsearch
+    volumes:
+      - ./core-site.xml:/opt/spark/conf/core-site.xml
+      - ./checkpoints:/home/mhai/Project_DE/bigdata-2025-1/check_point_dir/
+    networks:
+      - yelp-network
 
 networks:
-  default:
+  yelp-network:
     name: yelp-network
+    driver: bridge

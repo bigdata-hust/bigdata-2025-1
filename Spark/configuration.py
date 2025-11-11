@@ -49,6 +49,8 @@ class SparkConfig:
             .config("spark.sql.streaming.stateStore.providerClass", 
                     "org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider")
             .config('spark.streaming.stopGracefullyOnShutdown' , True)
+            
+            
 
             # ---- KAFKA - MONGODB - ELASTICSEARCH ----
             .config(
