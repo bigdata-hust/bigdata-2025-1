@@ -6,7 +6,7 @@ import pyspark
 Yelp Big Data Analysis System
 Optimized PySpark Pipeline for Large-Scale Data Processing
 """
-
+import os
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import *
 from pyspark.sql.types import (
@@ -30,7 +30,7 @@ class YelpAnalysisPipeline:
     Production-ready with error handling, monitoring, and checkpointing
     """
     
-    def __init__(self, data_path="../data/", output_path="output/"):
+    def __init__(self, data_path=None, output_path=None):
         self.data_path = data_path
         self.output_path = output_path
         self.spark = SparkConfig.create_spark_session()
@@ -214,8 +214,9 @@ class YelpAnalysisPipeline:
         print('SAVING TO HDFS')
         print('='*60)
         queries = []
+        hdfs_host = os.getenv("HDFS_URI", "hdfs://hdfs-namenode:9000")
         for name, df in self.results.items():
-            output = f'hdfs://hdfs-namenode:9000/test_01/{name}'
+            output = f"{hdfs_host}/test_01/{name}"
             try:
                 df_partitions = (df
                     .withColumn('created_date', current_timestamp())
@@ -255,6 +256,7 @@ class YelpAnalysisPipeline:
 
             print('=== batch id : ' , str(batch_id) , " ===")
             
+            elastic_uri = os.getenv("ELASTIC_URI", "http://elasticsearch:9200")
             bulk = ""
             rows = [r.asDict() for r in df.collect()]
             for r in rows :
@@ -262,7 +264,7 @@ class YelpAnalysisPipeline:
                 bulk += json.dumps(r , default = lambda x : x.isoformat() if hasattr(x , 'isoformat') else x) + '\n'
 
             res = requests.post(
-                f'http://elasticsearch:9200/{index}/_bulk' ,
+                f'{elastic_uri}/{index}/_bulk' ,
                 data = bulk ,
                 headers = {'Content-Type' : 'application/x-ndjson'}
             )

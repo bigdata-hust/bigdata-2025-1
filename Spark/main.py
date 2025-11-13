@@ -32,8 +32,8 @@ def main():
     
     # Initialize pipeline
     pipeline = YelpAnalysisPipeline(
-        data_path="../bigdata-2025-1/data/",
-        output_path="output/"
+        data_path=None,
+        output_path=None
     )
     
     try:
