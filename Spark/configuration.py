@@ -40,7 +40,10 @@ class SparkConfig:
             .config("spark.sql.shuffle.partitions", "20")   
             .config("spark.default.parallelism", "20")
             .config("spark.streaming.stopGracefullyOnShutdown", "true")
-
+            .config("spark.sql.adaptive.enabled", "true")
+            .config("spark.sql.streaming.stateStore.providerClass", 
+                            "org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider")
+                            
             # ---- SERIALIZER ----
             .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
             .config("spark.kryoserializer.buffer.max", "512m")

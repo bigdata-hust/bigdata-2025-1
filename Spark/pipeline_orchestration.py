@@ -33,7 +33,7 @@ def save_es(df , batch_id , index )  :
 
     print('=== batch id : ' , str(batch_id) , " ===")
     
-    if df.rdd.isEmpty():
+    if len(df.head(1)) == 0:
         print(f"Skip empty batch for index {index}")
         return
     
@@ -277,7 +277,7 @@ class YelpAnalysisPipeline:
             
     def save_elasticsearch(self) :
         print('\n' + '='*60)
-        print('SAVING TO ELASTICSEARCH')
+        print('SAVING TO ELaASTICSEARCH')
         print('='*60)
         
         queries = []
