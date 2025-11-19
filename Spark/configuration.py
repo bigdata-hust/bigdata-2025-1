@@ -46,9 +46,6 @@ class SparkConfig:
             .config("spark.kryoserializer.buffer.max", "512m")
 
             # ---- OPTIONAL ----
-            .config("spark.sql.streaming.stateStore.providerClass", 
-                    "org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider,"
-                    "org.apache.spark.sql.execution.streaming.state.RocksDBStateStoreProvider")
             .config('spark.streaming.stopGracefullyOnShutdown' , True)
             
             
