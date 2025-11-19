@@ -47,7 +47,8 @@ class SparkConfig:
 
             # ---- OPTIONAL ----
             .config("spark.sql.streaming.stateStore.providerClass", 
-                    "org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider")
+                    "org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider,"
+                    "org.apache.spark.sql.execution.streaming.state.RocksDBStateStoreProvider")
             .config('spark.streaming.stopGracefullyOnShutdown' , True)
             
             

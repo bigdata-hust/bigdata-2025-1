@@ -33,9 +33,13 @@ def save_es(df , batch_id , index )  :
 
     print('=== batch id : ' , str(batch_id) , " ===")
     
+    if df.rdd.isEmpty():
+        print(f"Skip empty batch for index {index}")
+        return
+    
     elastic_uri = os.getenv("ELASTIC_URI", "http://elasticsearch:9200")
     bulk = ""
-    rows = [r.asDict() for r in df.collect()]
+    rows = df.toJSON().collect()
     for r in rows :
         bulk += json.dumps({'index' : {}}) + '\n' 
         bulk += json.dumps(r , default = lambda x : x.isoformat() if hasattr(x , 'isoformat') else x) + '\n'
@@ -260,8 +264,8 @@ class YelpAnalysisPipeline:
                     .outputMode('append')
                     .partitionBy('year', 'month', 'day', 'hour')
                     .option('path', output)
-                    .option('checkpointLocation', f"/home/mhai/Project DE/bigdata-2025-1/check_point_dir/{name}/")
-                    .trigger(processingTime="5 seconds")
+                    .option('checkpointLocation', f"{hdfs_host}/check_point_dir/{name}")
+                    .trigger(once = True)
                     .start()
                 )
 
