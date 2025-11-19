@@ -33,7 +33,7 @@ def save_es(df , batch_id , index )  :
 
     print('=== batch id : ' , str(batch_id) , " ===")
     
-    if len(df.head(1)) == 0:
+    if df.rdd.isEmpty():
         print(f"Skip empty batch for index {index}")
         return
     

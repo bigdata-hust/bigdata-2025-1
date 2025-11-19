@@ -42,7 +42,7 @@ class SparkConfig:
             .config("spark.streaming.stopGracefullyOnShutdown", "true")
             .config("spark.sql.adaptive.enabled", "true")
             .config("spark.sql.streaming.stateStore.providerClass", 
-                            "org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider")
+                    "org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider")
                             
             # ---- SERIALIZER ----
             .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
