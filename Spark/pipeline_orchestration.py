@@ -33,9 +33,7 @@ def save_es(df , batch_id , index )  :
 
     print('=== batch id : ' , str(batch_id) , " ===")
     
-    if df.rdd.isEmpty():
-        print(f"Skip empty batch for index {index}")
-        return
+    
     
     elastic_uri = os.getenv("ELASTIC_URI", "http://elasticsearch:9200")
     bulk = ""
