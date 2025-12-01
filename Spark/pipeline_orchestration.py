@@ -36,22 +36,24 @@ def save_es(df , batch_id , index )  :
     
     
     elastic_uri = os.getenv("ELASTIC_URI", "http://elasticsearch:9200")
-    bulk = ""
-    rows = df.toJSON().collect()
-    for r in rows :
-        bulk += json.dumps({'index' : {}}) + '\n' 
-        bulk += json.dumps(r , default = lambda x : x.isoformat() if hasattr(x , 'isoformat') else x) + '\n'
+    def sent_partition(rows) :
+        bulk = ""
+        
+        for r in rows :
+            bulk += json.dumps({'index' : {}}) + '\n' 
+            bulk += json.dumps(r , default = lambda x : x.isoformat() if hasattr(x , 'isoformat') else x) + '\n'
 
-    res = requests.post(
-        f'{elastic_uri}/{index}/_bulk' ,
-        data = bulk ,
-        headers = {'Content-Type' : 'application/x-ndjson'}
-    )
+        res = requests.post(
+            f'{elastic_uri}/{index}/_bulk' ,
+            data = bulk ,
+            headers = {'Content-Type' : 'application/x-ndjson'}
+        )
 
-    if res.status_code >= 300 :
-        print(f'ES bulk {index} Error : ' , res.text) 
-    else :
-        print(f'ES bulk {index} Ok ')
+        if res.status_code >= 300 :
+            print(f'ES bulk {index} Error : ' , res.text) 
+        else :
+            print(f'ES bulk {index} Ok ')
+    df.foreachPartition(sent_partition)
 
 class YelpAnalysisPipeline:
     """
