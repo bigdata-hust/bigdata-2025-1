@@ -36,23 +36,30 @@ def save_es(df , batch_id , index )  :
     
     
     elastic_uri = os.getenv("ELASTIC_URI", "http://elasticsearch:9200")
-    def sent_partition(rows) :
+    def sent_partition(rows):
         bulk = ""
-        
-        for r in rows :
-            bulk += json.dumps({'index' : {}}) + '\n' 
-            bulk += json.dumps(r , default = lambda x : x.isoformat() if hasattr(x , 'isoformat') else x) + '\n'
 
-        res = requests.post(
-            f'{elastic_uri}/{index}/_bulk' ,
-            data = bulk ,
-            headers = {'Content-Type' : 'application/x-ndjson'}
-        )
+        for r in rows:
+            doc = r.asDict(recursive=True)   
 
-        if res.status_code >= 300 :
-            print(f'ES bulk {index} Error : ' , res.text) 
-        else :
-            print(f'ES bulk {index} Ok ')
+            bulk += json.dumps({"index": {}}) + "\n"
+            bulk += json.dumps(
+                doc,
+                default=lambda x: x.isoformat() if hasattr(x, "isoformat") else x
+            ) + "\n"
+
+        if bulk.strip():
+            res = requests.post(
+                f"{elastic_uri}/{index}/_bulk",
+                data=bulk,
+                headers={"Content-Type": "application/x-ndjson"}
+            )
+
+            if res.status_code >= 300:
+                print(f"❌ ES bulk {index} error:", res.text)
+            else:
+                print(f"✅ ES bulk {index} OK")
+
     df.foreachPartition(sent_partition)
 
 class YelpAnalysisPipeline:
@@ -77,7 +84,7 @@ class YelpAnalysisPipeline:
         
         self.business_df = self.data_loader.load_business_data()
         self.review_df = self.data_loader.load_review_data()
-        # self.user_df = self.data_loader.load_user_data()  # Load if needed
+        self.user_df = self.data_loader.load_user_data()  
         
         print("\n✓ All data loaded successfully")
 
@@ -164,6 +171,16 @@ class YelpAnalysisPipeline:
             print(f"✗ Error in Analysis 7: {str(e)}")
             raise
 
+    def run_analysis_8(self):
+        """Run Analysis 8: Yelp city sentiment Summary"""
+        try:
+            result = self.analytics.yelp_city_sentiment_summary(self.business_df, self.review_df , self.user_df)
+            self.results['city_sentiment'] = result
+            return result
+        except Exception as e:
+            print(f"✗ Error in Analysis 8: {str(e)}")
+            raise
+
     
     def run_all_analyses(self, config=None):
         """
@@ -192,6 +209,7 @@ class YelpAnalysisPipeline:
         self.run_analysis_5()
         self.run_analysis_6(**config['analysis_6'])
         self.run_analysis_7()
+        self.run_analysis_8()
 
         
 
@@ -277,7 +295,7 @@ class YelpAnalysisPipeline:
             
     def save_elasticsearch(self) :
         print('\n' + '='*60)
-        print('SAVING TO ELaASTICSEARCH')
+        print('SAVING TO ELASTICSEARCH')
         print('='*60)
         
         queries = []

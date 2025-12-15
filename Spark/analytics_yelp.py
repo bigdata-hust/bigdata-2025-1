@@ -384,4 +384,101 @@ class YelpAnalytics:
         return result
 
 
+    # ================================================================
+    # 8. Phân tích cảm xúc đánh giá theo thành phố
+    # ================================================================
+
+    def yelp_city_sentiment_summary(business_df, review_df, user_df):
+        b = business_df.alias("b")
+        r = review_df.alias("r")
+        u = user_df.alias("u")
+
+        # =========================
+        # JOIN + SELECT CLEAN
+        # =========================
+        df = (
+            r.join(
+                b.select("business_id", "city"),
+                on="business_id",
+                how="inner"
+            )
+            .join(
+                u.select(
+                    "user_id",
+                    F.col("name").alias("user_name"),
+                    F.col("fans").alias("user_fans"),
+                    F.col("useful").alias("user_useful")
+                ),
+                on="user_id",
+                how="inner"
+            )
+        )
+
+        # =========================
+        # SENTIMENT FROM STARS
+        # =========================
+        df = df.withColumn(
+            "sentiment",
+            F.when(F.col("stars") >= 4, "Positive")
+            .when(F.col("stars") == 3, "Neutral")
+            .otherwise("Negative")
+        )
+
+        # =========================
+        # PIVOT SENTIMENT BY CITY
+        # =========================
+        sentiment_pivot = (
+            df.groupBy("city")
+            .pivot("sentiment", ["Positive", "Neutral", "Negative"])
+            .agg(F.count("review_id"))
+            .fillna(0)
+        )
+
+        # =========================
+        # 5. CITY METRICS
+        # =========================
+        city_metrics = (
+            df.groupBy("city")
+            .agg(
+                F.count("review_id").alias("total_reviews"),
+                F.round(F.avg("stars"), 2).alias("avg_stars"),
+                F.countDistinct("business_id").alias("unique_businesses"),
+                F.countDistinct("user_id").alias("unique_users")
+            )
+        )
+
+        # =========================
+        # USER INFLUENCE SCORE
+        # =========================
+        df = df.withColumn(
+            "influence_score",
+            F.col("user_useful") + F.col("user_fans") * 2
+        )
+
+        # =========================
+        # WINDOW FUNCTION
+        # =========================
+        w = Window.partitionBy("city").orderBy(F.desc("influence_score"))
+
+        top_user_per_city = (
+            df.withColumn("rank", F.row_number().over(w))
+            .filter(F.col("rank") == 1)
+            .select(
+                "city",
+                "user_name",
+                "influence_score"
+            )
+        )
+
+        
+        final_df = (
+            city_metrics
+            .join(sentiment_pivot, on="city", how="left")
+            .join(top_user_per_city, on="city", how="left")
+            .orderBy(F.desc("total_reviews"))
+        )
+
+        return final_df
+
+
 
