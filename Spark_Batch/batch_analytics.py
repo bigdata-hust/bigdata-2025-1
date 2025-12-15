@@ -4,6 +4,7 @@ Optimized for batch processing without streaming overhead
 """
 import time
 from pyspark.sql.functions import *
+from pyspark.sql.functions import broadcast  # Explicit broadcast join
 from pyspark.sql.window import Window
 
 
@@ -47,9 +48,9 @@ class YelpAnalytics:
         # Get top candidates before join
         top_candidates = business_stats.orderBy(desc("recent_review_count")).limit(top_n * 10)
 
-        # Join with business info
+        # Broadcast join with business info (business_df is small after select)
         result = top_candidates.join(
-            business_df.select("business_id", "name", "city", "state", "categories"),
+            broadcast(business_df.select("business_id", "name", "city", "state", "categories")),
             "business_id"
         ).select(
             "business_id",
@@ -133,11 +134,11 @@ class YelpAnalytics:
         # Get top candidates
         top_candidates = qualified.orderBy(desc("avg_review_stars")).limit(top_n * 5)
 
-        # Join with business info
+        # Broadcast join with business info
         result = top_candidates.join(
-            business_df.select(
+            broadcast(business_df.select(
                 "business_id", "name", "city", "state", "categories", "stars"
-            ),
+            )),
             "business_id"
         ).select(
             "business_id",
@@ -199,11 +200,11 @@ class YelpAnalytics:
             .orderBy(desc("positive_review_count")) \
             .limit(top_n * 3)
 
-        # Join with business info
+        # Broadcast join with business info
         result = top_candidates.join(
-            business_df.select(
+            broadcast(business_df.select(
                 "business_id", "name", "city", "state", "categories"
-            ),
+            )),
             "business_id"
         ).select(
             "business_id",
@@ -272,9 +273,9 @@ class YelpAnalytics:
             explode(split(col("categories"), ",\\s*"))
         )
 
-        # Join review with business
+        # Broadcast join review with business (df_business after select is small)
         joined = review_df.join(
-            df_business.select("business_id", "category"),
+            broadcast(df_business.select("business_id", "category")),
             "business_id"
         )
 
