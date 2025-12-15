@@ -1,0 +1,11 @@
+# Yelp Big Data Analysis - Batch Mode Requirements
+
+# Core PySpark
+pyspark==4.0.1
+
+# HTTP requests
+requests>=2.28.0
+
+# Optional: For development
+# ipython>=8.0.0
+# jupyter>=1.0.0
