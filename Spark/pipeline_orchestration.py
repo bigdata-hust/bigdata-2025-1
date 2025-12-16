@@ -13,6 +13,7 @@ from pyspark.sql.types import (
     StructType, StructField, StringType, IntegerType, 
     DoubleType, TimestampType, BooleanType
 )
+from functools import partial
 import time
 from datetime import datetime
 
@@ -24,6 +25,36 @@ import json
 import traceback
 import requests
 from configuration import SparkConfig
+
+def save_es(index, df , batch_id  )  :
+    print('\n' + '='*60)
+    print(f'=== Start save {index} to ElasticSearch===')
+    print('='*60)
+
+    print('=== batch id : ' , str(batch_id) , " ===")
+    
+    
+    
+    elastic_uri = os.getenv("ELASTIC_URI", "http://elasticsearch:9200")
+    def sent_partition(rows) :
+        bulk = ""
+        
+        for r in rows :
+            bulk += json.dumps({'index' : {}}) + '\n' 
+            bulk += json.dumps(r , default = lambda x : x.isoformat() if hasattr(x , 'isoformat') else x) + '\n'
+
+        res = requests.post(
+            f'{elastic_uri}/{index}/_bulk' ,
+            data = bulk ,
+            headers = {'Content-Type' : 'application/x-ndjson'}
+        )
+
+        if res.status_code >= 300 :
+            print(f'ES bulk {index} Error : ' , res.text) 
+        else :
+            print(f'ES bulk {index} Ok ')
+    df.foreachPartition(sent_partition)
+
 class YelpAnalysisPipeline:
     """
     Main pipeline orchestrator
@@ -203,7 +234,7 @@ class YelpAnalysisPipeline:
             try :
                 df.writeStream.format('parquet') \
                                 .outputMode('append') \
-                                .option('checkpointLocation' , f'/home/mhai/Project DE/bigdata-2025-1/check_output_dir/{name}' )
+                                .option('checkpointLocation' , f'hdfs://namenode:9000/check_output_dir/{name}' )
                 print(f"✓ Saved {name} to {output_path}")
             
             except Exception as e:
@@ -233,8 +264,8 @@ class YelpAnalysisPipeline:
                     .outputMode('append')
                     .partitionBy('year', 'month', 'day', 'hour')
                     .option('path', output)
-                    .option('checkpointLocation', f"/home/mhai/Project DE/bigdata-2025-1/check_point_dir/{name}/")
-                    .trigger(processingTime="5 seconds")
+                    .option('checkpointLocation', f"{hdfs_host}/check_point_dir/{name}")
+                    .trigger(processingTime='3 minute')
                     .start()
                 )
 
@@ -243,43 +274,19 @@ class YelpAnalysisPipeline:
             except Exception as e:
                 print(f" Error saving {name} to HDFS: {e}")
         return queries
-
-
+            
     def save_elasticsearch(self) :
         print('\n' + '='*60)
-        print('SAVING TO ELASTICSEARCH')
+        print('SAVING TO ELaASTICSEARCH')
         print('='*60)
-        def save_es(df , batch_id , index)  :
-            print('\n' + '='*60)
-            print(f'=== Start save {index} to ElasticSearch===')
-            print('='*60)
-
-            print('=== batch id : ' , str(batch_id) , " ===")
-            
-            elastic_uri = os.getenv("ELASTIC_URI", "http://elasticsearch:9200")
-            bulk = ""
-            rows = [r.asDict() for r in df.collect()]
-            for r in rows :
-                bulk += json.dumps({'index' : {}}) + '\n' 
-                bulk += json.dumps(r , default = lambda x : x.isoformat() if hasattr(x , 'isoformat') else x) + '\n'
-
-            res = requests.post(
-                f'{elastic_uri}/{index}/_bulk' ,
-                data = bulk ,
-                headers = {'Content-Type' : 'application/x-ndjson'}
-            )
-
-            if res.status_code >= 300 :
-                print(f'ES bulk {name} Error : ' , res.text) 
-            else :
-                print('ES bulk {name} Ok ')
+        
         queries = []
         for name,df in self.results.items() :
             try :
                 query = (
-                    df.writeStream.foreachBatch(lambda df , batch_id , index = name :
-                                                save_es(df , batch_id , index)) \
+                    df.writeStream.foreachBatch(partial(save_es , name)) \
                                     .outputMode('append') \
+                                    .trigger(processingTime='3 minute')
                                     .start()
                 )
                 queries.append(query)
@@ -290,41 +297,7 @@ class YelpAnalysisPipeline:
         return queries
     
     
-    def save_mongodb(self) :
-        print('\n' + '='*60)
-        print('SAVING TO MONGODB')
-        print('='*60)
-        def save_mg(df , batch_id , index) :
-            try :
-                print('\n' + '='*60)
-                print(f'=== Start save {index} to MongoDB ===')
-                print('='*60)
 
-                print('=== batch id : ' , str(batch_id) , ' ===')
-                
-                df.write.format('mongodb') \
-                                .option('database' , 'yelp_sentiment') \
-                                .option('collection' , index) \
-                                .mode('append') \
-                                .save()
-            except Exception as e:
-                print("🔥 Exception inside save_es():", str(e))
-                traceback.print_exc()
-        queries = []
-        for name,df in self.results.items() :
-            try :
-                query = (
-                    df.writeStream.foreachBatch(lambda df , batch_id , index = name :
-                                                save_mg(df , batch_id , index)) \
-                                    .outputMode('append') \
-                                    .start()
-                )
-                queries.append(query)
-                print(f" Stream '{name}' started -> MongoDB")
-            except Exception as e:
-                print(f" Error saving {name} to MongoDB: {e}")
-       
-        return queries
     def save_all(self) :
         print('=== Starting all streaming jobs ===')
 
@@ -365,5 +338,4 @@ class YelpAnalysisPipeline:
         """Stop Spark session"""
         self.spark.stop()
         print("✓ Spark session stopped")
-
 
