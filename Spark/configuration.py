@@ -32,13 +32,19 @@ class SparkConfig:
             .appName("Yelp Big Data Analysis System")
 
             # ---- MEMORY ----
-            .config("spark.driver.memory", "16g")      
-            .config("spark.executor.memory", "4g")
-            .config("spark.memory.fraction", "0.6")
+            .config("spark.driver.memory", "6g")          
+            .config("spark.executor.memory", "2g")        
+            .config("spark.executor.memoryOverhead", "512m")
+            .config("spark.memory.fraction", "0.45")      
+            .config("spark.memory.storageFraction", "0.3")
+            .config(
+                "spark.executor.extraJavaOptions",
+                "-XX:+UseG1GC -XX:InitiatingHeapOccupancyPercent=35"
+            )
 
             # ---- STREAMING ----
-            .config("spark.sql.shuffle.partitions", "20")   
-            .config("spark.default.parallelism", "20")
+            .config("spark.sql.shuffle.partitions", "8")   
+            .config("spark.default.parallelism", "8")
             .config("spark.streaming.stopGracefullyOnShutdown", "true")
             .config("spark.sql.adaptive.enabled", "true")
             .config("spark.sql.streaming.stateStore.providerClass", 

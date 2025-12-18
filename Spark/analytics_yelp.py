@@ -7,12 +7,14 @@ Yelp Big Data Analysis System
 Optimized PySpark Pipeline for Large-Scale Data Processing
 """
 
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession , Window
 from pyspark.sql.functions import *
 from pyspark.sql.types import (
     StructType, StructField, StringType, IntegerType, 
     DoubleType, TimestampType, BooleanType
 )
+
+import pyspark.sql.functions as F
 import time
 from datetime import datetime
 
@@ -387,7 +389,7 @@ class YelpAnalytics:
     # ================================================================
     # 8. Phân tích cảm xúc đánh giá theo thành phố
     # ================================================================
-
+    @staticmethod
     def yelp_city_sentiment_summary(business_df, review_df, user_df):
         b = business_df.alias("b")
         r = review_df.alias("r")
@@ -398,13 +400,13 @@ class YelpAnalytics:
         # =========================
         df = (
             r.join(
-                b.select("business_id", "city"),
+                b.select("business_id", "city" , "business_ts"),
                 on="business_id",
                 how="inner"
             )
             .join(
                 u.select(
-                    "user_id",
+                    "user_id", "user_ts" ,
                     F.col("name").alias("user_name"),
                     F.col("fans").alias("user_fans"),
                     F.col("useful").alias("user_useful")
@@ -428,7 +430,7 @@ class YelpAnalytics:
         # PIVOT SENTIMENT BY CITY
         # =========================
         sentiment_pivot = (
-            df.groupBy("city")
+            df.groupBy("city" , "business_ts")
             .pivot("sentiment", ["Positive", "Neutral", "Negative"])
             .agg(F.count("review_id"))
             .fillna(0)
@@ -438,7 +440,7 @@ class YelpAnalytics:
         # 5. CITY METRICS
         # =========================
         city_metrics = (
-            df.groupBy("city")
+            df.groupBy("city" , "business_ts")
             .agg(
                 F.count("review_id").alias("total_reviews"),
                 F.round(F.avg("stars"), 2).alias("avg_stars"),
@@ -466,7 +468,8 @@ class YelpAnalytics:
             .select(
                 "city",
                 "user_name",
-                "influence_score"
+                "influence_score",
+                "business_ts"
             )
         )
 
@@ -475,7 +478,6 @@ class YelpAnalytics:
             city_metrics
             .join(sentiment_pivot, on="city", how="left")
             .join(top_user_per_city, on="city", how="left")
-            .orderBy(F.desc("total_reviews"))
         )
 
         return final_df
