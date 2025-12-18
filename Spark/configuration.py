@@ -30,17 +30,23 @@ class SparkConfig:
         spark = (
             SparkSession.builder
             .appName("Yelp Big Data Analysis System")
+            
 
             # ---- MEMORY ----
-            .config("spark.driver.memory", "16g")      
+            .config("spark.driver.memory", "2g")
             .config("spark.executor.memory", "4g")
-            .config("spark.memory.fraction", "0.6")
-
+            .config("spark.executor.cores", "2")
+            .config("spark.executor.memoryOverhead", "1g")
+            .config("spark.driver.memoryOverhead", "1g")
+            .config("spark.dynamicAllocation.enabled", "true") 
+            .config("spark.shuffle.service.enabled", "true")
             # ---- STREAMING ----
             .config("spark.sql.shuffle.partitions", "20")   
             .config("spark.default.parallelism", "20")
             .config("spark.streaming.stopGracefullyOnShutdown", "true")
             .config("spark.sql.adaptive.enabled", "true")
+            .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
+            .config("spark.sql.adaptive.skewJoin.enabled", "true")
             .config("spark.sql.streaming.stateStore.providerClass", 
                     "org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider")
                             

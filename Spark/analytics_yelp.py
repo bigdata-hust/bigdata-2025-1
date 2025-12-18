@@ -7,13 +7,14 @@ Yelp Big Data Analysis System
 Optimized PySpark Pipeline for Large-Scale Data Processing
 """
 
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession ,Window
 from pyspark.sql.functions import *
 from pyspark.sql.types import (
     StructType, StructField, StringType, IntegerType, 
     DoubleType, TimestampType, BooleanType
 )
 import time
+import pyspark.sql.functions as F
 from datetime import datetime
 
 
@@ -387,24 +388,23 @@ class YelpAnalytics:
     # ================================================================
     # 8. Phân tích cảm xúc đánh giá theo thành phố
     # ================================================================
-
+    @staticmethod
     def yelp_city_sentiment_summary(business_df, review_df, user_df):
+
         b = business_df.alias("b")
         r = review_df.alias("r")
         u = user_df.alias("u")
 
-        # =========================
-        # JOIN + SELECT CLEAN
-        # =========================
         df = (
             r.join(
-                b.select("business_id", "city"),
+                b.select("business_id", "city", "business_ts"),
                 on="business_id",
                 how="inner"
             )
             .join(
                 u.select(
                     "user_id",
+                    "user_ts",
                     F.col("name").alias("user_name"),
                     F.col("fans").alias("user_fans"),
                     F.col("useful").alias("user_useful")
@@ -414,9 +414,8 @@ class YelpAnalytics:
             )
         )
 
-        # =========================
-        # SENTIMENT FROM STARS
-        # =========================
+        df = df.withWatermark("review_ts", "10 minutes")
+
         df = df.withColumn(
             "sentiment",
             F.when(F.col("stars") >= 4, "Positive")
@@ -424,61 +423,48 @@ class YelpAnalytics:
             .otherwise("Negative")
         )
 
-        # =========================
-        # PIVOT SENTIMENT BY CITY
-        # =========================
+    
+        windowed_df = df.withColumn(
+            "window",
+            F.window("review_ts", "10 minutes")
+        )
+
+      
         sentiment_pivot = (
-            df.groupBy("city")
+            windowed_df
+            .groupBy("window", "city")
             .pivot("sentiment", ["Positive", "Neutral", "Negative"])
             .agg(F.count("review_id"))
             .fillna(0)
         )
 
-        # =========================
-        # 5. CITY METRICS
-        # =========================
         city_metrics = (
-            df.groupBy("city")
+            windowed_df
+            .groupBy("window", "city")
             .agg(
                 F.count("review_id").alias("total_reviews"),
                 F.round(F.avg("stars"), 2).alias("avg_stars"),
-                F.countDistinct("business_id").alias("unique_businesses"),
-                F.countDistinct("user_id").alias("unique_users")
+                F.count("business_id").alias("business_events"),
+                F.count("user_id").alias("user_events")
             )
         )
 
-        # =========================
-        # USER INFLUENCE SCORE
-        # =========================
-        df = df.withColumn(
-            "influence_score",
-            F.col("user_useful") + F.col("user_fans") * 2
-        )
-
-        # =========================
-        # WINDOW FUNCTION
-        # =========================
-        w = Window.partitionBy("city").orderBy(F.desc("influence_score"))
-
-        top_user_per_city = (
-            df.withColumn("rank", F.row_number().over(w))
-            .filter(F.col("rank") == 1)
-            .select(
-                "city",
-                "user_name",
-                "influence_score"
-            )
-        )
-
-        
+    
         final_df = (
             city_metrics
-            .join(sentiment_pivot, on="city", how="left")
-            .join(top_user_per_city, on="city", how="left")
-            .orderBy(F.desc("total_reviews"))
+            .join(sentiment_pivot, ["window", "city"], "left")
+            .select(
+                "window",
+                "city",
+                "total_reviews",
+                "avg_stars",
+                "business_events",
+                "user_events",
+                "Positive",
+                "Neutral",
+                "Negative"
+            )
         )
 
         return final_df
-
-
 
