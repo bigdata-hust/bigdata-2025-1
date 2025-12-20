@@ -1,0 +1,306 @@
+📂 Spark_Batch/                                    [DỰ ÁN YELP BIG DATA ANALYSIS]
+│
+├─── 📘 00_START_HERE.md ⭐                        [BẮT ĐẦU TỪ ĐÂY - Hướng dẫn điều hướng]
+│     └─ Navigation guide cho toàn bộ dự án
+│
+├─── 📖 DOCUMENTATION (Tài liệu)
+│    │
+│    ├─ README.md ⭐                               [Quick Start - ĐỌC ĐẦU TIÊN!]
+│    │   └─ 7KB - Quick commands, test instructions, troubleshooting
+│    │
+│    ├─ PROJECT_STRUCTURE.md ⭐                    [Cấu trúc chi tiết - ĐỌC THỨ HAI!]
+│    │   └─ 80KB - Chi tiết 13 files, function mapping, code examples
+│    │
+│    ├─ ARCHITECTURE_DIAGRAM.md ⭐                 [Sơ đồ kiến trúc - ĐỌC THỨ BA!]
+│    │   └─ 35KB - Visual diagrams, data flow, class diagrams
+│    │
+│    ├─ LOCAL_TEST_GUIDE.md ⭐                     [Hướng dẫn test]
+│    │   └─ 17KB - Test từng feature, expected outputs
+│    │
+│    ├─ IMPLEMENTATION_PLAN_PA1.md                [Kế hoạch Phase 1]
+│    │   └─ Implementation roadmap & timeline
+│    │
+│    ├─ QUICKSTART.md                             [Quick start (older)]
+│    └─ README_BATCH.md                           [Batch readme (older)]
+│
+├─── 🎯 ENTRY POINTS (Điểm khởi chạy)
+│    │
+│    ├─ batch_main.py                             [V1: 7 analyses cơ bản]
+│    │   ├─ main() - Parse args, create pipeline
+│    │   ├─ print_header()
+│    │   └─ print_footer()
+│    │   📊 185 dòng
+│    │   🎯 Usage: python batch_main.py --data-path ./data/
+│    │
+│    └─ batch_main_v2.py ⭐                        [V2: 9 analyses nâng cao - RECOMMENDED]
+│        ├─ EnhancedYelpPipeline (kế thừa YelpAnalysisPipeline)
+│        ├─ run_analysis_8() - Trending Businesses (Window Functions)
+│        ├─ run_analysis_9() - Category Performance Matrix (Pivot/Unpivot)
+│        └─ run_all_analyses_v2() - Chạy tất cả 9 analyses
+│        📊 324 dòng
+│        🎯 Usage: python batch_main_v2.py --data-path ./data/
+│
+├─── 🔧 CORE MODULES (Module cốt lõi)
+│    │
+│    ├─ batch_configuration.py                    [Spark Config & Schemas]
+│    │   ├─ SparkConfig
+│    │   │   └─ create_spark_session() - Khởi tạo Spark với config tối ưu
+│    │   │       ├─ Driver memory: 8GB
+│    │   │       ├─ Executor memory: 4GB
+│    │   │       ├─ Shuffle partitions: 20
+│    │   │       └─ Adaptive Query Execution: enabled
+│    │   ├─ DataSchemas
+│    │   │   ├─ business_schema() - Schema cho business.json
+│    │   │   ├─ review_schema() - Schema cho review.json
+│    │   │   └─ user_schema() - Schema cho user.json
+│    │   📊 127 dòng
+│    │
+│    ├─ batch_load_data.py                        [Data Loader]
+│    │   ├─ DataLoader
+│    │   │   ├─ load_business_data() - Load 150K+ businesses
+│    │   │   ├─ load_review_data() - Load 7M+ reviews
+│    │   │   └─ load_user_data() - Load 2M+ users (optional)
+│    │   📊 122 dòng
+│    │   🔗 Depends on: batch_configuration.py
+│    │
+│    └─ batch_pipeline.py                         [Pipeline Orchestrator]
+│        ├─ YelpAnalysisPipeline
+│        │   ├─ load_data() - Load tất cả datasets
+│        │   ├─ run_analysis_1() - Top Selling Products
+│        │   ├─ run_analysis_2() - User Purchase Patterns
+│        │   ├─ run_analysis_3() - Top Users by Reviews
+│        │   ├─ run_analysis_4() - Category Trends Over Time
+│        │   ├─ run_analysis_5() - High Rating Low Review Count
+│        │   ├─ run_analysis_6() - Geographic Distribution
+│        │   ├─ run_analysis_7() - Seasonal Trends
+│        │   ├─ run_all_analyses() - Chạy tất cả 7 analyses
+│        │   └─ save_results() - Lưu kết quả ra CSV
+│        📊 229 dòng
+│        🔗 Depends on: batch_configuration, batch_load_data, batch_analytics
+│
+├─── 📊 ANALYTICS MODULES (Module phân tích)
+│    │
+│    ├─ batch_analytics.py                        [7 Analyses Cơ bản với Broadcast Join]
+│    │   ├─ YelpAnalytics
+│    │   │   │
+│    │   │   ├─ Analysis 1: top_selling_products_recent()
+│    │   │   │   ├─ Tính năng: Broadcast Join ✓
+│    │   │   │   └─ Output: Top businesses theo reviews gần đây
+│    │   │   │
+│    │   │   ├─ Analysis 2: user_purchase_patterns()
+│    │   │   │   ├─ Tính năng: Aggregation
+│    │   │   │   └─ Output: Phân tích hành vi user
+│    │   │   │
+│    │   │   ├─ Analysis 3: top_users_by_reviews()
+│    │   │   │   ├─ Tính năng: Broadcast Join ✓
+│    │   │   │   └─ Output: Top users theo số lượng reviews
+│    │   │   │
+│    │   │   ├─ Analysis 4: category_trends_over_time()
+│    │   │   │   ├─ Tính năng: Broadcast Join ✓
+│    │   │   │   └─ Output: Xu hướng theo categories
+│    │   │   │
+│    │   │   ├─ Analysis 5: high_rating_low_review_businesses()
+│    │   │   │   ├─ Tính năng: Filter & Aggregation
+│    │   │   │   └─ Output: Businesses ít review nhưng rating cao
+│    │   │   │
+│    │   │   ├─ Analysis 6: geographic_distribution()
+│    │   │   │   ├─ Tính năng: Broadcast Join ✓
+│    │   │   │   └─ Output: Phân bố theo địa lý
+│    │   │   │
+│    │   │   └─ Analysis 7: seasonal_trends()
+│    │   │       ├─ Tính năng: Time-based Analysis
+│    │   │       └─ Output: Xu hướng theo mùa
+│    │   │
+│    │   📊 335 dòng
+│    │   ⚡ Optimizations: Broadcast Join (4 analyses), Caching, Salted Aggregation
+│    │
+│    └─ batch_analytics_advanced.py ⭐             [2 Analyses Nâng cao]
+│        ├─ AdvancedYelpAnalytics
+│        │   │
+│        │   ├─ Analysis 8: trending_businesses()
+│        │   │   ├─ Tính năng: Window Functions ✓
+│        │   │   │   ├─ lag() - So sánh với tuần trước
+│        │   │   │   ├─ lead() - Nhìn trước tuần sau
+│        │   │   │   ├─ avg() over window - Moving average 4 tuần
+│        │   │   │   ├─ dense_rank() - Ranking businesses
+│        │   │   │   └─ rowsBetween(-3, 0) - Sliding window
+│        │   │   └─ Output: Top businesses trending với growth rate
+│        │   │
+│        │   └─ Analysis 9: category_performance_matrix()
+│        │       ├─ Tính năng: Pivot/Unpivot Operations ✓
+│        │       │   ├─ pivot() - Long → Wide format
+│        │       │   ├─ stack() - Wide → Long format (unpivot)
+│        │       │   └─ Cross-tabulation analysis
+│        │       └─ Output: Ma trận categories × cities
+│        │
+│        📊 473 dòng
+│        🔗 Depends on: batch_udf.py
+│
+├─── 🎯 UDF LIBRARY (Thư viện hàm tùy chỉnh)
+│    │
+│    └─ batch_udf.py ⭐                            [7 UDFs - Regular & Pandas]
+│        │
+│        ├─── 📌 REGULAR UDFs (Row-by-row processing)
+│        │    │
+│        │    ├─ categorize_rating(stars)
+│        │    │   ├─ Input: int (1-5 stars)
+│        │    │   └─ Output: string ("Excellent" / "Good" / "Average" / "Poor")
+│        │    │
+│        │    ├─ is_weekend(date)
+│        │    │   ├─ Input: datetime
+│        │    │   └─ Output: boolean (True if Saturday/Sunday)
+│        │    │
+│        │    └─ extract_city_state(address)
+│        │        ├─ Input: string (full address)
+│        │        └─ Output: string ("City, State")
+│        │
+│        └─── ⚡ PANDAS UDFs (Vectorized - 10-100x faster!)
+│             │
+│             ├─ sentiment_score(text)
+│             │   ├─ Input: pd.Series (review texts)
+│             │   └─ Output: pd.Series (float 0.0-1.0, 0=negative, 1=positive)
+│             │
+│             ├─ extract_keywords(text)
+│             │   ├─ Input: pd.Series (review texts)
+│             │   └─ Output: pd.Series (top 3 keywords as string)
+│             │
+│             ├─ text_length_normalized(text)
+│             │   ├─ Input: pd.Series (review texts)
+│             │   └─ Output: pd.Series (normalized length 0.0-1.0)
+│             │
+│             └─ extract_hashtags(text)
+│                 ├─ Input: pd.Series (review texts)
+│                 └─ Output: pd.Series (comma-separated hashtags)
+│        │
+│        📊 443 dòng
+│        ⚡ Performance: Pandas UDF 10-100x nhanh hơn Regular UDF
+│
+├─── 🧪 TESTING (Kiểm thử)
+│    │
+│    └─ test_local_features.py ⭐                  [Test Suite cho 4 tính năng nâng cao]
+│        ├─ FeatureTester
+│        │   │
+│        │   ├─ test_udfs()
+│        │   │   ├─ Test 7 UDFs (3 Regular + 4 Pandas)
+│        │   │   └─ So sánh performance Regular vs Pandas
+│        │   │
+│        │   ├─ test_window_functions()
+│        │   │   ├─ Test Analysis 8
+│        │   │   └─ Verify lag/lead/rank/avg operations
+│        │   │
+│        │   ├─ test_pivot_unpivot()
+│        │   │   ├─ Test Analysis 9
+│        │   │   └─ Validate pivot/unpivot transformations
+│        │   │
+│        │   └─ test_broadcast_join()
+│        │       ├─ Check physical plan
+│        │       └─ Verify BroadcastHashJoin in explain()
+│        │
+│        📊 355 dòng
+│        🎯 Usage: python test_local_features.py --test [udf|window|pivot|broadcast|all]
+│
+├─── 🛠️ UTILITIES (Tiện ích)
+│    │
+│    └─ create_sample_data.py                     [Tạo dữ liệu mẫu]
+│        ├─ create_sample_business_data() - 100 businesses
+│        ├─ create_sample_review_data() - 1000 reviews
+│        └─ Output: data/sample_business.json, data/sample_review.json
+│        📊 119 dòng
+│        🎯 Usage: python create_sample_data.py
+│
+└─── 📁 DATA (Dữ liệu)
+     │
+     ├─ business.json                             [150,346 businesses]
+     ├─ review.json                               [6,990,280 reviews]
+     └─ user.json                                 [1,987,897 users]
+
+═══════════════════════════════════════════════════════════════════════════
+
+📊 STATISTICS - THỐNG KÊ DỰ ÁN
+
+├─ Tổng dòng code Python:     2,712 lines
+├─ Số Python files:            13 files
+├─ Số documentation files:     7 files (~160KB)
+├─ Số analyses:                9 (7 basic + 2 advanced)
+├─ Số UDFs:                    7 (3 Regular + 4 Pandas)
+├─ Spark features:             15+ features
+├─ Test coverage:              4 feature tests
+└─ Skill coverage:             42% → 64% (+22%)
+
+═══════════════════════════════════════════════════════════════════════════
+
+🎯 QUICK COMMANDS - LỆNH NHANH
+
+# 1. Chạy pipeline đầy đủ (9 analyses)
+python3 batch_main_v2.py --data-path ./data/
+
+# 2. Chạy pipeline cơ bản (7 analyses)
+python3 batch_main.py --data-path ./data/
+
+# 3. Test tất cả tính năng nâng cao
+python3 test_local_features.py --test all
+
+# 4. Test từng feature riêng
+python3 test_local_features.py --test udf
+python3 test_local_features.py --test window
+python3 test_local_features.py --test pivot
+python3 test_local_features.py --test broadcast
+
+# 5. Tạo dữ liệu mẫu
+python3 create_sample_data.py
+
+═══════════════════════════════════════════════════════════════════════════
+
+🗺️ DEPENDENCY GRAPH - QUAN HỆ PHỤ THUỘC
+
+                    batch_main_v2.py (V2 Entry)
+                            │
+              ┌─────────────┼─────────────┐
+              │             │             │
+              ▼             ▼             ▼
+      batch_pipeline    batch_analytics_  (test files)
+            .py         advanced.py
+              │             │
+        ┌─────┼─────┐      │
+        │     │     │      │
+        ▼     ▼     ▼      ▼
+      cfg   ldr   anl   batch_udf.py
+        │
+        ▼
+    PySpark
+
+    Legend:
+      cfg = batch_configuration.py
+      ldr = batch_load_data.py
+      anl = batch_analytics.py
+
+═══════════════════════════════════════════════════════════════════════════
+
+📚 DOCUMENTATION ROADMAP - LỘ TRÌNH ĐỌC
+
+Người mới (Chưa biết gì):
+  1. 00_START_HERE.md (2 min)         → Overview & navigation
+  2. README.md (5 min)                → Quick start & commands
+  3. ARCHITECTURE_DIAGRAM.md (15 min) → Visual diagrams
+  4. PROJECT_STRUCTURE.md (30 min)    → Chi tiết từng module
+  5. Hands-on: Run tests & pipeline
+
+Developer (Muốn add features):
+  1. PROJECT_STRUCTURE.md             → Tìm module cần sửa
+  2. Function Mapping section         → Biết hàm nào ở đâu
+  3. Dependency Graph                 → Hiểu quan hệ modules
+  4. Add code theo pattern            → Maintain consistency
+
+Reviewer (Review code):
+  1. ARCHITECTURE_DIAGRAM.md          → High-level design
+  2. PROJECT_STRUCTURE.md             → Implementation details
+  3. LOCAL_TEST_GUIDE.md              → Test coverage
+
+═══════════════════════════════════════════════════════════════════════════
+
+⭐ = Files/Features mới trong Phase 1 (Advanced Features)
+✓ = Feature đã được implement
+
+Last Updated: 2025-12-16
+Version: 2.0 (Advanced Features)
+Branch: claude/review-project-structure-pfDJE
