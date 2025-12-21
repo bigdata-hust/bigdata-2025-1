@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>About Model</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
+    <style>
+        body {
+            background: #f4f7fb;
+            font-family: "Segoe UI", sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 260px;
+            height: 100vh;
+            background: linear-gradient(180deg, #6a5af9, #8b54ff);
+            padding: 30px 20px;
+            color: white;
+        }
+
+        .sidebar h2 {
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .sidebar a {
+            color: white;
+            display: block;
+            padding: 12px 18px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .sidebar a:hover,
+        .sidebar a.active {
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* MAIN */
+        .main-content {
+            margin-left: 280px;
+            padding: 40px;
+        }
+
+        .page-title {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 30px;
+        }
+
+        .info-box {
+            background: white;
+            padding: 35px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        .info-box h3 {
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .info-box ul {
+            padding-left: 20px;
+        }
+
+        .info-box li {
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+    <h2>ℹ️ Sentiment NLP</h2>
+    <a href="/"><i class="bi bi-chat-left-text"></i> Predict</a>
+    <a href="/charts"><i class="bi bi-bar-chart-line"></i> Charts</a>
+    <a href="/about" class="active"><i class="bi bi-info-circle"></i> About</a>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="main-content">
+
+    <div class="page-title">
+        About This Model
+    </div>
+
+    <div class="info-box">
+
+        <h3>
+            <i class="bi bi-cpu"></i> Sentiment Analysis Model
+        </h3>
+
+        <p>
+            Mô hình phân tích cảm xúc được xây dựng bằng
+            <b>Apache Spark ML Pipeline</b>, phục vụ bài toán
+            <b>Sentiment Analysis</b> trên tập dữ liệu review.
+        </p>
+
+        <p>
+            Pipeline xử lý và huấn luyện bao gồm các bước:
+        </p>
+
+        <ul>
+            <li><b>Tokenizer</b> – tách văn bản thành các token</li>
+            <li><b>StopWordsRemover</b> – loại bỏ stop words</li>
+            <li><b>CountVectorizer</b> – chuyển văn bản sang vector</li>
+            <li><b>IDF</b> – tính trọng số TF-IDF</li>
+            <li><b>Logistic Regression</b> – mô hình phân loại cảm xúc</li>
+        </ul>
+
+        <p>
+            Model được huấn luyện , sau đó
+            <b>save/load</b> bằng <code>PipelineModel</code>
+            và tích hợp vào <b>Flask Web Application</b>
+            để dự đoán realtime.
+        </p>
+
+        <p>
+            Hệ thống phù hợp cho các bài toán <b>Big Data NLP</b>
+            .
+        </p>
+
+    </div>
+
+</div>
+
+</body>
+</html>
