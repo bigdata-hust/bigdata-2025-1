@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # ELASTICSEARCH - Data Storage & Indexing
+  # ============================================================================
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.3
+    container_name: yelp-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks:
+      - yelp-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ============================================================================
+  # KIBANA - Data Visualization & Dashboards
+  # ============================================================================
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.3
+    container_name: yelp-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_NAME=yelp-kibana
+      - LOGGING_VERBOSE=false
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - yelp-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ============================================================================
+  # SPARK BATCH PROCESSOR (Optional - for automated runs)
+  # ============================================================================
+  # Uncomment this if you want automated batch processing
+  # spark-batch:
+  #   build:
+  #     context: ./Spark_Batch
+  #     dockerfile: Dockerfile
+  #   container_name: yelp-spark-batch
+  #   environment:
+  #     - ELASTICSEARCH_HOST=elasticsearch
+  #     - ELASTICSEARCH_PORT=9200
+  #     - DATA_PATH=/app/data
+  #     - OUTPUT_PATH=/app/output
+  #   volumes:
+  #     - ./data:/app/data
+  #     - ./output:/app/output
+  #     - ./Spark_Batch:/app
+  #   depends_on:
+  #     elasticsearch:
+  #       condition: service_healthy
+  #   networks:
+  #     - yelp-network
+  #   command: python3 batch_main_elasticsearch.py --data-path /app/data
+
+# ============================================================================
+# VOLUMES
+# ============================================================================
+volumes:
+  elasticsearch-data:
+    driver: local
+
+# ============================================================================
+# NETWORKS
+# ============================================================================
+networks:
+  yelp-network:
+    name: yelp-network
+    driver: bridge
