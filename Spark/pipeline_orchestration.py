@@ -283,7 +283,7 @@ class YelpAnalysisPipeline:
                     .partitionBy('year', 'month', 'day', 'hour')
                     .option('path', output)
                     .option('checkpointLocation', f"{hdfs_host}/check_point_dir/{name}")
-                    .trigger(once = True)
+                    .trigger(processingTime="1 minute")
                     .start()
                 )
 
@@ -359,6 +359,9 @@ class YelpAnalysisPipeline:
 
         if queries:
             print("\n=== Waiting for streaming queries to run ===")
+            print("=== ACTIVE STREAMS ===")
+            for q in self.spark.streams.active:
+                print(f"- {q.name}, isActive={q.isActive}, status={q.status}")
             self.spark.streams.awaitAnyTermination()
         else:
             print("\n No streaming queries started!")

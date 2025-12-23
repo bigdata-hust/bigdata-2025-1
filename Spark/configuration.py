@@ -24,29 +24,25 @@ class SparkConfig:
         """
         Initialize Spark Session with optimized configurations for streaming
         """
-        # Đảm bảo thư mục checkpoints tồn tại
-        os.makedirs("checkpoints", exist_ok=True)
 
         spark = (
             SparkSession.builder
             .appName("Yelp Big Data Analysis System")
+            
 
             # ---- MEMORY ----
-            .config("spark.driver.memory", "6g")          
-            .config("spark.executor.memory", "2g")        
-            .config("spark.executor.memoryOverhead", "512m")
-            .config("spark.memory.fraction", "0.45")      
-            .config("spark.memory.storageFraction", "0.3")
-            .config(
-                "spark.executor.extraJavaOptions",
-                "-XX:+UseG1GC -XX:InitiatingHeapOccupancyPercent=35"
-            )
-
+            .config("spark.driver.memory", "2g")
+            .config("spark.executor.memory", "4g")
+            .config("spark.executor.cores", "2")
+            .config("spark.executor.memoryOverhead", "1g")
+            .config("spark.driver.memoryOverhead", "1g")
             # ---- STREAMING ----
             .config("spark.sql.shuffle.partitions", "8")   
             .config("spark.default.parallelism", "8")
             .config("spark.streaming.stopGracefullyOnShutdown", "true")
             .config("spark.sql.adaptive.enabled", "true")
+            .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
+            .config("spark.sql.adaptive.skewJoin.enabled", "true")
             .config("spark.sql.streaming.stateStore.providerClass", 
                     "org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider")
                             
