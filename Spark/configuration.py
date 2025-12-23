@@ -31,11 +31,11 @@ class SparkConfig:
             
 
             # ---- MEMORY ----
-            .config("spark.driver.memory", "2g")
-            .config("spark.executor.memory", "4g")
-            .config("spark.executor.cores", "2")
-            .config("spark.executor.memoryOverhead", "1g")
-            .config("spark.driver.memoryOverhead", "1g")
+            .config("spark.driver.memory", "8g")
+            .config("spark.executor.memory", "24g")
+            .config("spark.executor.cores", "4")
+            .config("spark.executor.memoryOverhead", "8g")
+            .config("spark.driver.memoryOverhead", "4g")
             # ---- STREAMING ----
             .config("spark.sql.shuffle.partitions", "8")   
             .config("spark.default.parallelism", "8")

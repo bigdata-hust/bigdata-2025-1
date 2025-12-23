@@ -259,6 +259,7 @@ class YelpAnalysisPipeline:
                 print(f"✗ Error saving {name}: {str(e)}")
 
     def save_hdfs(self):
+        import uuid
         print('\n' + '='*60)
         print('SAVING TO HDFS')
         print('='*60)
@@ -282,8 +283,9 @@ class YelpAnalysisPipeline:
                     .outputMode('append')
                     .partitionBy('year', 'month', 'day', 'hour')
                     .option('path', output)
-                    .option('checkpointLocation', f"{hdfs_host}/check_point_dir/{name}")
-                    .trigger(processingTime="1 minute")
+                    .option('checkpointLocation', f"{hdfs_host}/check_point_dir/{name}/{uuid.uuid4()}")
+                    .option("compression", "snappy")
+                    .trigger(processingTime="3 minute")
                     .start()
                 )
 
