@@ -75,6 +75,7 @@ class YelpAnalysisPipeline:
         self.data_loader = DataLoader(self.spark, data_path)
         self.analytics = YelpAnalytics()
         self.results = {}
+        self.raw = {}
     
     def load_data(self):
         """Load all datasets"""
@@ -86,6 +87,10 @@ class YelpAnalysisPipeline:
         self.review_df = self.data_loader.load_review_data()
         self.user_df = self.data_loader.load_user_data()  
         
+        self.raw['business'] = self.business_df 
+        self.raw['review'] = self.review_df 
+        self.raw['user'] = self.user_df 
+
         print("\n✓ All data loaded successfully")
 
     def run_analysis_1(self, days=15, top_n=10):
@@ -258,6 +263,45 @@ class YelpAnalysisPipeline:
             except Exception as e:
                 print(f"✗ Error saving {name}: {str(e)}")
 
+
+    def save_hdfs_raw(self):
+        import uuid
+        print('\n' + '='*60)
+        print('SAVING RAW DATA TO HDFS')
+        print('='*60)
+        queries = []
+        hdfs_host = os.getenv("HDFS_URI", "hdfs://hdfs-namenode:9000")
+        for name, df in self.raw.items():
+            output = f"{hdfs_host}/yelp-sentiment/data/{name}"
+            try:
+                df_partitions = (df
+                    .withColumn('created_date', current_timestamp())
+                    .withColumn('updated_date', current_timestamp())
+                    .withColumn('year', year('created_date'))
+                    .withColumn('month', month('created_date'))
+                    .withColumn('day', dayofmonth('created_date'))
+                    .withColumn('hour', hour('created_date'))
+                )
+
+                query = (
+                df_partitions.writeStream
+                    .format('parquet')
+                    .outputMode('append')
+                    .partitionBy('year', 'month', 'day', 'hour')
+                    .option('path', output)
+                    .option('checkpointLocation', f"{hdfs_host}/check_point_dir_raw/{name}/{uuid.uuid4()}")
+                    .option("compression", "snappy")
+                    .trigger(processingTime="3 minute")
+                    .start()
+                )
+
+                queries.append(query)
+                print(f" Stream '{name}' started -> {output}")
+            except Exception as e:
+                print(f" Error saving {name} to HDFS: {e}")
+        return queries
+    
+
     def save_hdfs(self):
         import uuid
         print('\n' + '='*60)
@@ -266,7 +310,7 @@ class YelpAnalysisPipeline:
         queries = []
         hdfs_host = os.getenv("HDFS_URI", "hdfs://hdfs-namenode:9000")
         for name, df in self.results.items():
-            output = f"{hdfs_host}/test_01/{name}"
+            output = f"{hdfs_host}/yelp-sentiment/analytics/{name}"
             try:
                 df_partitions = (df
                     .withColumn('created_date', current_timestamp())
@@ -355,6 +399,7 @@ class YelpAnalysisPipeline:
         print('=== Starting all streaming jobs ===')
 
         queries = []
+        queries += self.save_hdfs_raw()
         queries += self.save_hdfs()
         queries += self.save_elasticsearch()
         # queries += self.save_mongodb()

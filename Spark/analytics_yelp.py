@@ -7,11 +7,7 @@ Yelp Big Data Analysis System
 Optimized PySpark Pipeline for Large-Scale Data Processing
 """
 
-<<<<<<< HEAD
-from pyspark.sql import SparkSession , Window
-=======
 from pyspark.sql import SparkSession ,Window
->>>>>>> 1b1e6d05e7b76a86b1031a33f0cfb8700b1ae770
 from pyspark.sql.functions import *
 from pyspark.sql.types import (
     StructType, StructField, StringType, IntegerType, 

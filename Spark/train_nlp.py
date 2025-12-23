@@ -15,12 +15,10 @@ from functools import partial
 from configuration import SparkConfig
 import os
 
-kafka_broker = os.getenv("KAFKA_BROKER", "kafka:9092") 
-spark = SparkConfig
-review = spark.read.format("kafka").option("kafka.bootstrap.server" , kafka_broker)  \
-                                    .option("startingOffsets" , "earnliest") \
-                                    .option("subcribe" , "review") \
-                                    .load() 
+spark = SparkConfig.create_spark_session()
+
+hdfs_path = "hdfs://localhost:9000/yelp-sentiment/review"
+review = spark.read.load(hdfs_path)
 review.show(5)
 
 review_label = review.withColumn(
