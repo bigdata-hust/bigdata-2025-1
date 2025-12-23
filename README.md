@@ -44,7 +44,7 @@ Xây dựng một hệ thống Big Data mô phỏng thực tế, đáp ứng đ�
 ## 3. Kiến trúc hệ thống
 
 ### 3.1. Tổng quan kiến trúc
-![alt text](image.png)
+![Data Flow](dataflow.jpg)
 
 ### 3.2. Mô tả các thành phần
 
