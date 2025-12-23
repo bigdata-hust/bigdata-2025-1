@@ -13,6 +13,8 @@ from pyspark.sql.types import (
     StructType, StructField, StringType, IntegerType, 
     DoubleType, TimestampType, BooleanType
 )
+
+import pyspark.sql.functions as F
 import time
 import pyspark.sql.functions as F
 from datetime import datetime
