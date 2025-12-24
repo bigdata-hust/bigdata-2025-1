@@ -1,6 +1,6 @@
 from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
-from airflow.providers.standard.operators.python import BaseOperator
+from airflow.providers.standard.operators.bash import BashOperator
 from airflow.providers.smtp.operators.smtp import EmailOperator
 from airflow.providers.standard.sensors.python import PythonSensor
 from datetime import datetime , timedelta
@@ -25,9 +25,9 @@ def check_file_hdfs(path) :
     files = cilent.list(path) 
     try :
         for file in files :
-            if file.endswith("json") :
+            if file.endswith("parquet") :
                 return True
-            return False
+        return False
     except Exception as e :
         return False
 
@@ -72,6 +72,7 @@ with DAG(
         namespace="airflow",  # set lại namespace
         image="minhhaitknavn/train-model:2.0.0",
         cmds=["python", "train_model.py"],
+        in_cluster=True,
         get_logs=True,
         is_delete_operator_pod=True
     )
@@ -92,4 +93,4 @@ with DAG(
         trigger_rule = "one_failed"
     )
 
-    wait_file_review >> train_model >> [email_success , email_fail]
+    [wait_file_review ,wait_file_business , wait_file_user] >> train_model >> [email_success , email_fail]
