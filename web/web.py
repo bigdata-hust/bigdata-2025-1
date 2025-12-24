@@ -1,20 +1,21 @@
 from flask import Flask, request, render_template
 from pyspark.sql import SparkSession
 from pyspark.ml.pipeline import PipelineModel
-
+import os
 spark = SparkSession.builder \
     .appName("SentimentFlask") \
     .master("local[*]") \
     .getOrCreate()
 
-model = PipelineModel.load("models/tfidf_sentiment")
+hdfs_host = os.getenv("HDFS_URI" , "hdfs://hdfs-namenode:9000")
+model = PipelineModel.load(f"{hdfs_host}/yelp-sentiment/models/tfidf_sentiment")
 
 app = Flask(__name__)
 
-label_map = {1: "Positive", 0: "Negative" , 2: "Neutral"}
+label_map = {1: "Positive", 0: "Negative" }
 
 @app.route("/", methods=["GET", "POST"])
-def home():
+def home(): 
     prediction = None
 
     if request.method == "POST":

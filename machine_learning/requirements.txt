@@ -1,0 +1,2 @@
+# --- Big Data & Distributed Computing ---
+pyspark==4.0.1
