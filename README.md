@@ -12,6 +12,7 @@ Dự án này xây dựng một **Big Data Pipeline hoàn chỉnh** dựa trên 
 - Elasticsearch & Kibana
 - Spark MLlib
 - Prometheus & Grafana
+- Airflow
 
 Hệ thống cho phép:
 - Xử lý dữ liệu **streaming + batch**
@@ -19,6 +20,7 @@ Hệ thống cho phép:
 - Thực hiện **Sentiment Analysis** trên dữ liệu lớn
 - Lưu trữ dữ liệu lịch sử để huấn luyện mô hình Machine Learning
 - Trực quan hóa kết quả và giám sát hiệu năng hệ thống
+- Lập lịch để train model 
 
 ---
 
@@ -38,7 +40,7 @@ Xây dựng một hệ thống Big Data mô phỏng thực tế, đáp ứng đ�
 - Phân tích thống kê và xu hướng người dùng
 - Trực quan hóa dữ liệu bằng Kibana
 - Monitoring hệ thống bằng Prometheus & Grafana
-
+- Lập lịch và chạy train model bằng Apache Airflow
 ---
 
 ## 3. Kiến trúc hệ thống
@@ -72,6 +74,9 @@ Xây dựng một hệ thống Big Data mô phỏng thực tế, đáp ứng đ�
 - Thu thập metrics từ Kafka & Spark
 - Theo dõi độ trễ, throughput, resource usage
 
+#### Apache Airflow
+- Tự động hóa hoàn toàn quy trình huấn luyện mô hình
+- Giảm thao tác thủ công và lỗi vận hành
 ---
 ## 3.3. Kiến trúc triển khai trên Kubernetes
 
@@ -83,33 +88,52 @@ Kubernetes đóng vai trò:
 - Quản lý tài nguyên CPU / RAM
 - Tăng tính sẵn sàng và khả năng phục hồi hệ thống
 
+Hệ thống được triển khai dưới dạng nhiều Pod và Service độc lập, tương ứng với từng thành phần trong pipeline Big Data, bao gồm Kafka, Spark, HDFS, Elasticsearch, Airflow và các công cụ trực quan hóa, monitoring.
 ### Kiến trúc triển khai
 ```
-+---------------- Kubernetes Cluster ----------------+
-| |
-| +-----------+ +-----------+ |
-| | Kafka |<---->| Zookeeper| |
-| | Pod(s) | | Pod | |
-| +-----------+ +-----------+ |
-| | |
-| v |
-| +------------------+ |
-| | Spark Streaming | |
-| | Driver + Executor| |
-| +------------------+ |
-| | |
-| v |
-| +-----------+ +----------------+ |
-| | HDFS |<---->| Elasticsearch | |
-| | Name/Data | | Pod(s) | |
-| +-----------+ +----------------+ |
-| | |
-| v |
-| +------------------+ |
-| | Kibana / Grafana | |
-| +------------------+ |
-| |
-+----------------------------------------------------+
++------------------------- Kubernetes Cluster --------------------------+
+|                                                                        |
+|  +-----------+        +-------------+                                 |
+|  |  Kafka    |<------>|  Zookeeper  |                                 |
+|  |  Pod(s)   |        |  Pod        |                                 |
+|  +-----------+        +-------------+                                 |
+|        |                                                               |
+|        v                                                               |
+|  +--------------------+                                                |
+|  | Spark Structured   |                                                |
+|  | Streaming          |                                                |
+|  | Driver + Executors |                                                |
+|  +--------------------+                                                |
+|        |                                                               |
+|        | (Streaming data)                                              |
+|        v                                                               |
+|  +--------------------+        +---------------------+                 |
+|  | Hadoop HDFS        |<------>| Elasticsearch       |                 |
+|  | NameNode/DataNode  |        | Pod(s)              |                 |
+|  +--------------------+        +---------------------+                 |
+|        |                                  |                            |
+|        | (Batch data for ML)              v                            |
+|        v                       +--------------------+                  |
+|  +--------------------+        | Kibana / Grafana   |                  |
+|  | Apache Airflow     |        +--------------------+                  |
+|  | Scheduler + Worker |                                                |
+|  +--------------------+                                                |
+|        |                                                               |
+|        | (Trigger training)                                            |
+|        v                                                               |
+|  +--------------------+                                                |
+|  | Spark ML Training  |                                                |
+|  | (Batch Job)        |                                                |
+|  +--------------------+                                                |
+|        |                                                               |
+|        v                                                               |
+|  +--------------------+                                                |
+|  | Kibana / Grafana   |                                                |
+|  +--------------------+                                                |
+|                                                                        |
++------------------------------------------------------------------------+
+
+
 ```
 ## 4. Dataset Yelp
 
@@ -142,6 +166,8 @@ Kubernetes đóng vai trò:
 ```
 BIGDATA-2025-1/
 │
+├── dags/
+| ├── train_model_dag.py
 ├── data/
 │ ├── review.json
 │ ├── business.json
@@ -346,6 +372,19 @@ Grafana hiển thị:
 - Spark processing latency
 - Throughput streaming
 
+#### 11.6. Apache Airflow (Workflow Orchestration)
+
+Apache Airflow được sử dụng để lập lịch và điều phối các batch job, chủ yếu là huấn luyện mô hình Machine Learning
+Được triển khai trên Kubernetes với các thành phần:
+          - Scheduler: lập lịch và quản lý DAG
+          - Webserver: giao diện theo dõi workflow
+          - Worker: thực thi các tác vụ
+
+Vai trò trong hệ thống:
+- Theo dõi dữ liệu đã xử lý và lưu trữ trên HDFS
+- Tự động kích hoạt train model khi dữ liệu sẵn sàng
+- Điều phối pipeline batch độc lập với Spark Streaming
+- Gửi email thông báo trạng thái huấn luyện
 ---
 
 ## 12. Quản lý tài nguyên & Scaling
@@ -409,6 +448,8 @@ kubectl apply -f k8s/elasticsearch.yaml
 kubectl apply -f k8s/kibana.yaml
 kubectl apply -f k8s/prometheus.yaml
 kubectl apply -f k8s/grafana.yaml
+kubectl apply -f k8s/airflow.yaml
+
 ```
 ### 14.3. Kiểm tra trạng thái
 ```
