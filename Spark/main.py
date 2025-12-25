@@ -55,7 +55,6 @@ def main():
         # Step 4: Save results
         # Step 5 : Save HDFS
         # Step 6 : Save ElasticSearch
-        # Step 7 : Save MongoDB
         pipeline.save_all()
 
         # Step 8: Generate summary

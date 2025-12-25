@@ -20,64 +20,84 @@ from datetime import datetime
 # CONFIGURATION & INITIALIZATION
 # ============================================================================
 class SparkConfig:
-    def create_spark_session():
-        """
-        Initialize Spark Session with optimized configurations for streaming
-        """
-        # Đảm bảo thư mục checkpoints tồn tại
-        os.makedirs("checkpoints", exist_ok=True)
+    @staticmethod
+    def _get_env(key: str, default: str) -> str:
+        """Lấy biến môi trường hoặc dùng giá trị mặc định"""
+        return os.environ.get(key, default)
 
-        spark = (
+    @staticmethod
+    def create_spark_session():
+        # --- 1. LẤY CẤU HÌNH KẾT NỐI TỪ MÔI TRƯỜNG ---
+        spark_master = SparkConfig._get_env("SPARK_MASTER_URL", "spark://spark-master:7077")
+        hdfs_uri = SparkConfig._get_env("HDFS_URI", "hdfs://127.0.0.1:9000")
+
+        # --- 2. KHỞI TẠO BUILDER ---
+        builder = (
             SparkSession.builder
             .appName("Yelp Big Data Analysis System")
+            .master(spark_master) # Ép dùng Standalone, không dùng YARN nên sẽ hết lỗi
+            
+            # ---- HADOOP / HDFS CONFIG ----
+            .config("spark.hadoop.fs.defaultFS", hdfs_uri)
+            .config("spark.hadoop.fs.hdfs.impl", "org.apache.hadoop.hdfs.DistributedFileSystem")
 
-            # ---- MEMORY ----
-            .config("spark.driver.memory", "6g")          
-            .config("spark.executor.memory", "2g")        
-            .config("spark.executor.memoryOverhead", "512m")
-            .config("spark.memory.fraction", "0.45")      
-            .config("spark.memory.storageFraction", "0.3")
+            # ---- MEMORY (Giữ nguyên cấu hình cũ của bạn) ----
+             .config("spark.driver.memory", "8g")
+
+            .config("spark.executor.memory", "24g")
+
+
+            .config("spark.executor.cores", "4")
+
+
+            .config("spark.executor.memoryOverhead", "8g")
+
+
+            .config("spark.executor.instances", "2")
+
+            .config("spark.dynamicAllocation.enabled", "true") 
+
+
+            .config("spark.shuffle.service.enabled", "false")
+            .config("spark.dynamicAllocation.shuffleTracking.enabled", "true")
             .config(
                 "spark.executor.extraJavaOptions",
                 "-XX:+UseG1GC -XX:InitiatingHeapOccupancyPercent=35"
             )
-
-            # ---- STREAMING ----
+            # ---- NETWORK / BINDING (Quan trọng để Cluster thấy Driver) ----
+            .config("spark.driver.port", "7078")
+            .config("spark.driver.blockManager.port", "7079")
+            .config("spark.driver.bindAddress", "0.0.0.0")
+            .config("spark.driver.host", SparkConfig._get_env("SPARK_DRIVER_HOST", "0.0.0.0"))
+            .config("spark.driver.maxResultSize", "2g")
+            # ---- STREAMING (Giữ nguyên cấu hình cũ của bạn) ----
             .config("spark.sql.shuffle.partitions", "8")   
             .config("spark.default.parallelism", "8")
             .config("spark.streaming.stopGracefullyOnShutdown", "true")
             .config("spark.sql.adaptive.enabled", "true")
-            .config("spark.sql.streaming.stateStore.providerClass", 
-                    "org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider")
-                            
-            # ---- SERIALIZER ----
+            
+            
+            
+            .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
+
+
+            .config("spark.sql.adaptive.skewJoin.enabled", "true")
+            # ---- SERIALIZER (Giữ nguyên cấu hình cũ của bạn) ----
             .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
             .config("spark.kryoserializer.buffer.max", "512m")
-
-            # ---- OPTIONAL ----
-            .config('spark.streaming.stopGracefullyOnShutdown' , True)
-            
-            
-
-            # ---- KAFKA - MONGODB - ELASTICSEARCH ----
-            .config(
-                "spark.jars.packages",
-                "org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.1," 
-                'org.mongodb.spark:mongo-spark-connector_2.13:10.5.0,' 
-                'org.elasticsearch:elasticsearch-spark-30_2.13:8.14.3'
-            )
-            .getOrCreate() 
-            # .config('spark.mongodb.write.connection.uri' , 'mongodb://mongodb:27017')
-            
-                    
+            .config("spark.sql.streaming.statefulOperator.allowMultiple", "false")
+            # ---- PACKAGES (Kafka, ES) ----
         )
+        jars = SparkConfig._get_env("SPARK_JARS_PACKAGES", "")
+        if jars:
+            builder = builder.config("spark.jars.packages", jars)
 
-        # ✅ Đặt checkpointDir an toàn (dưới spark context)
-        spark.sparkContext.setCheckpointDir(os.path.abspath("checkpoints"))
+        # --- 3. TẠO SESSION VÀ CẤU HÌNH CONTEXT ---
+        spark = builder.getOrCreate()
+        
+        # Đặt checkpointDir lên HDFS để an toàn hơn so với local
         spark.sparkContext.setLogLevel("WARN")
 
-    
-  
         return spark
 # ============================================================================
 # DATA SCHEMAS

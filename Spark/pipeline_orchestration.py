@@ -1,67 +1,94 @@
 # ============================================================================
 # PIPELINE ORCHESTRATION
 # ============================================================================
-import pyspark
 """
 Yelp Big Data Analysis System
 Optimized PySpark Pipeline for Large-Scale Data Processing
 """
 import os
-from pyspark.sql import SparkSession
 from pyspark.sql.functions import *
-from pyspark.sql.types import (
-    StructType, StructField, StringType, IntegerType, 
-    DoubleType, TimestampType, BooleanType
-)
 from functools import partial
 import time
-from datetime import datetime
 
 from analytics_yelp import YelpAnalytics
 from load_data import DataLoader
-from configuration import SparkConfig , YelpSchemas
-
+from configuration import SparkConfig
+import requests
 import json
 import traceback
-import requests
 from configuration import SparkConfig
 
-def save_es(df , batch_id , index )  :
+def save_es(df, batch_id, index):
     print('\n' + '='*60)
-    print(f'=== Start save {index} to ElasticSearch===')
+    print(f'=== Start save {index} to ElasticSearch (DRIVER CHUNKING MODE) ===')
     print('='*60)
-
-    print('=== batch id : ' , str(batch_id) , " ===")
-    
-    
+    print('=== batch id : ', str(batch_id), " ===")
     
     elastic_uri = os.getenv("ELASTIC_URI", "http://elasticsearch:9200")
-    def sent_partition(rows):
-        bulk = ""
+    
+    # 1. LẤY ITERATOR: Dữ liệu sẽ được tải về từng dòng một, không tải hết 1 cục
+    try:
+        row_iterator = df.toLocalIterator()
+    except Exception as e:
+        print(f"❌ Error getting iterator: {e}")
+        return
 
-        for r in rows:
-            doc = r.asDict(recursive=True)   
+    # Cấu hình kích thước mỗi gói tin gửi đi (Ví dụ: 2000 dòng/gói)
+    CHUNK_SIZE = 2000 
+    current_chunk = []
+    total_count = 0
 
-            bulk += json.dumps({"index": {}}) + "\n"
-            bulk += json.dumps(
-                doc,
-                default=lambda x: x.isoformat() if hasattr(x, "isoformat") else x
-            ) + "\n"
+    # 2. DUYỆT VÀ GỬI CUỐN CHIẾU (STREAMING)
+    # Không dùng len() hay gom hết vào 1 biến string to
+    try:
+        for row in row_iterator:
+            current_chunk.append(row)
+            
+            # Nếu gom đủ 2000 dòng thì gửi đi ngay và xóa bộ nhớ
+            if len(current_chunk) >= CHUNK_SIZE:
+                push_chunk_to_es(current_chunk, elastic_uri, index)
+                total_count += len(current_chunk)
+                current_chunk = [] # Reset list để giải phóng RAM
+        
+        # Gửi nốt số lẻ còn lại (nếu có)
+        if current_chunk:
+            push_chunk_to_es(current_chunk, elastic_uri, index)
+            total_count += len(current_chunk)
+            
+        print(f"✅ Finished Batch {batch_id}. Total pushed: {total_count} records.")
+        
+    except Exception as e:
+        print(f"❌ Error processing iterator: {e}")
 
-        if bulk.strip():
-            res = requests.post(
-                f"{elastic_uri}/{index}/_bulk",
-                data=bulk,
-                headers={"Content-Type": "application/x-ndjson"}
-            )
+# Hàm phụ trợ để gửi từng gói nhỏ (Giúp code gọn hơn)
+def push_chunk_to_es(rows, uri, index):
+    if not rows: return
 
-            if res.status_code >= 300:
-                print(f"❌ ES bulk {index} error:", res.text)
-            else:
-                print(f"✅ ES bulk {index} OK")
-
-    df.foreachPartition(sent_partition)
-
+    bulk_data = ""
+    for r in rows:
+        doc = r.asDict(recursive=True)
+        bulk_data += json.dumps({"index": {}}) + "\n"
+        # Xử lý format ngày tháng nếu cần
+        bulk_data += json.dumps(
+            doc,
+            default=lambda x: x.isoformat() if hasattr(x, "isoformat") else x
+        ) + "\n"
+    
+    # Gửi request
+    try:
+        url = f"{uri}/{index}/_bulk"
+        headers = {"Content-Type": "application/x-ndjson"}
+        res = requests.post(url, data=bulk_data, headers=headers)
+        
+        if res.status_code >= 300:
+            print(f"⚠️ Chunk Error: {res.status_code} - {res.text[:100]}...")
+        # else:
+            # print(f"   -> Pushed chunk {len(rows)} items.") # Uncomment nếu muốn debug chi tiết
+            
+    except Exception as e:
+        print(f"❌ Connection Error sending chunk: {e}")
+        
+        
 class YelpAnalysisPipeline:
     """
     Main pipeline orchestrator
@@ -246,26 +273,28 @@ class YelpAnalysisPipeline:
         print("\n" + "="*60)
         print("SAVING RESULTS")
         print("="*60)
-        
+        hdfs_host = os.getenv("HDFS_URI", "hdfs://hdfs-namenode:9000")
+
         for name, df in self.results.items():
             output_path = f"{self.output_path}{name}"
             try :
                 df.writeStream.format('parquet') \
                                 .outputMode('append') \
-                                .option('checkpointLocation' , f'/home/mhai/Project DE/bigdata-2025-1/check_output_dir/{name}' )
+                                .option('checkpointLocation', f"{hdfs_host}/check_output_dir1/{name}")
                 print(f"✓ Saved {name} to {output_path}")
             
             except Exception as e:
                 print(f"✗ Error saving {name}: {str(e)}")
 
     def save_hdfs(self):
+        import uuid
         print('\n' + '='*60)
         print('SAVING TO HDFS')
         print('='*60)
         queries = []
         hdfs_host = os.getenv("HDFS_URI", "hdfs://hdfs-namenode:9000")
         for name, df in self.results.items():
-            output = f"{hdfs_host}/test_01/{name}"
+            output = f"{hdfs_host}/yelp-sentiment/analytics/{name}"
             try:
                 df_partitions = (df
                     .withColumn('created_date', current_timestamp())
@@ -282,8 +311,9 @@ class YelpAnalysisPipeline:
                     .outputMode('append')
                     .partitionBy('year', 'month', 'day', 'hour')
                     .option('path', output)
-                    .option('checkpointLocation', f"{hdfs_host}/check_point_dir/{name}")
-                    .trigger(once = True)
+                    .option('checkpointLocation', f"{hdfs_host}/check_point_dir/{name}/{uuid.uuid4()}")
+                    .option("compression", "snappy")
+                    .trigger(processingTime="3 minute")
                     .start()
                 )
 
@@ -359,6 +389,9 @@ class YelpAnalysisPipeline:
 
         if queries:
             print("\n=== Waiting for streaming queries to run ===")
+            print("=== ACTIVE STREAMS ===")
+            for q in self.spark.streams.active:
+                print(f"- {q.name}, isActive={q.isActive}, status={q.status}")
             self.spark.streams.awaitAnyTermination()
         else:
             print("\n No streaming queries started!")
@@ -389,5 +422,4 @@ class YelpAnalysisPipeline:
         """Stop Spark session"""
         self.spark.stop()
         print("✓ Spark session stopped")
-
 

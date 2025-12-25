@@ -24,7 +24,8 @@ class DataLoader:
                 .option("kafka.bootstrap.servers", self.kafka_broker)
                 .option("subscribe", "business")
                 .option("startingOffsets", "earliest")
-                .option("failOnDataLoss" , "true")
+                .option("failOnDataLoss" , "false")
+                .option("maxOffsetsPerTrigger", 5000)
                 .load()
         )
 
@@ -50,7 +51,8 @@ class DataLoader:
                 .option("kafka.bootstrap.servers", self.kafka_broker)
                 .option("subscribe", "review")
                 .option("startingOffsets", "earliest")
-                .option("failOnDataLoss" , "true")
+                .option("maxOffsetsPerTrigger", 5000)
+                .option("failOnDataLoss" , "false")
                 .load()
         )
 
@@ -74,7 +76,8 @@ class DataLoader:
                 .option("kafka.bootstrap.servers", self.kafka_broker)
                 .option("subscribe", "user")
                 .option("startingOffsets", "earliest")
-                .option("failOnDataLoss" , "true")
+                .option("failOnDataLoss" , "false")
+                .option("maxOffsetsPerTrigger", 5000)
                 .load()
         )
 

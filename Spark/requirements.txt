@@ -1,4 +1,4 @@
 # --- Big Data & Distributed Computing ---
-pyspark==4.0.1
+pyspark==3.5.0
 # --- API & Networking ---
 requests
