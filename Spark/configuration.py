@@ -43,8 +43,6 @@ class SparkConfig:
             .config("spark.sql.adaptive.enabled", "true")
             .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
             .config("spark.sql.adaptive.skewJoin.enabled", "true")
-            .config("spark.sql.streaming.stateStore.providerClass", 
-                    "org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider")
                             
             # ---- SERIALIZER ----
             .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
@@ -69,7 +67,6 @@ class SparkConfig:
         )
 
         # ✅ Đặt checkpointDir an toàn (dưới spark context)
-        spark.sparkContext.setCheckpointDir(os.path.abspath("checkpoints"))
         spark.sparkContext.setLogLevel("WARN")
 
     

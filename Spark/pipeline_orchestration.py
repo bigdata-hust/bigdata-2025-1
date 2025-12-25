@@ -285,6 +285,7 @@ class YelpAnalysisPipeline:
 
                 query = (
                 df_partitions.writeStream
+                    .queryName(f"hdfs_{name}")
                     .format('parquet')
                     .outputMode('append')
                     .partitionBy('year', 'month', 'day', 'hour')
