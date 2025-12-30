@@ -1,0 +1,4 @@
+flask
+pyspark==4.0.1
+hdfs
+numpy
